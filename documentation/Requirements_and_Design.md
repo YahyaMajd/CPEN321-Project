@@ -37,7 +37,7 @@ DormDash provides a complete, stress-free solution. Through an Uber-like app, st
 
 
 ### **3.2. Use Case Diagram**
-![Use Case Diagram](./images/UCD.png)
+![Use Case Diagram](./images/Use_Case_Diagram.png)
 
 
 ### **3.3. Actors Description**
@@ -208,39 +208,90 @@ DormDash provides a complete, stress-free solution. Through an Uber-like app, st
 - 2a. No available jobs fit the mover’s schedule  
   - 2a1. Mover is prompted to change their schedule  
 
+### **3.6. Non Functional Requirements:**
+
+1. **Scalability**  
+   - **Description**: Handle short, predictable bursts around move-in/move-out while remaining simple enough for a student-built deployment.  
+   - **Parameters**: Support ~400 concurrent users and ~200 jobs/day during peak weeks.  
+   - **Justification**: UBC Vancouver alone has ~60k students, so even low adoption during peak periods can create bursts. In late April’s “Great Shuffle,” UBC reports ~7,000 residence moves in Vancouver (~9,100 system-wide including UBCO) within a single week. Designing for ~400 concurrent users and ~200 jobs/day offers conservative headroom without requiring complex infrastructure.  
+
+2. **Availability**  
+   - **Description**: Ensure responsiveness and reliability of core interactions.  
+   - **Parameters**: 95% of requests on core calls (job list, accept, order status) should reflect within 0.1s.  
+   - **Justification**: Research on usability response times shows that sub-0.1s feedback feels instantaneous to users, improving trust and engagement ([Nielsen Norman Group](https://www.nngroup.com/articles/response-times-3-important-limits/)).  
+
+
 
 ## 4. Designs Specification
 ### **4.1. Main Components**
-1. **[WRITE_NAME_HERE]**
-    - **Purpose**: ...
+1. **Users**
+    - **Purpose**: Represent the end user (student) who schedules pickups/returns, pays, and tracks order status.
     - **Interfaces**: 
-        1. ...
-            - **Purpose**: ...
-        2. ...
-2. ...
+        1. Orders
+            - **Purpose**: Create orders, view their statuses, request returns.
+        2. Google Calendar
+            - **Purpose**: Receive event reminders for scheduled pickups/returns.
+        3. Google Maps
+            - **Purpose**: Validate addresses and estimate distances to calculate price.
+        4. Payments
+            - **Purpose**: Pay for submitted orders.
+
+2. **Payments**
+   - **Purpose**: Handle student payments and route credits to movers.  
+   - **Interfaces**:  
+     1. **Student**  
+        - **Purpose**: When orders are created or cancelled, process payments or refunds.  
+     2. **Mover**  
+        - **Purpose**: When orders are completed, route credits to movers; handle reversals if orders are cancelled.  
+
+3. **Orders**
+   - **Purpose**: Central domain component that creates and tracks pickup/return orders and coordinates acceptance and state transitions.  
+   - **Interfaces**:  
+     1. **Student**  
+        - **Purpose**: Create, edit, and view orders.  
+     2. **Mover**  
+        - **Purpose**: Accept jobs and update order status throughout the lifecycle.  
+
 
 
 ### **4.2. Databases**
-1. **[WRITE_NAME_HERE]**
-    - **Purpose**: ...
-2. ...
+
+1. **MongoDB**  
+   - **Purpose**: Store flexible, document-oriented data for students, movers, orders, and job states. Orders and their lifecycle events can be modeled as nested documents, making it easier to track status updates, storage details, and histories without complex joins.  
 
 
 ### **4.3. External Modules**
-1. **[WRITE_NAME_HERE]** 
-    - **Purpose**: ...
-2. ...
+1. **Identity** 
+    - **Purpose**: Google OAuth (OIDC) for login.
+2. **Calendar**
+    - **Purpose**: Google Calendar for event creation/updates after job acceptance.
+3. **Maps**  
+   - **Purpose**: Google Maps (Geocoding + Distance Matrix) for address normalization and proximity filtering.  
+
+4. **Payments**  
+   - **Purpose**: Stripe (or Square) for tokenized payments and webhooks; no card data is stored on our servers.  
+
+**Rationale**: These APIs are well-documented, widely used, student-friendly, and provide free tiers along with robust SDKs.  
+
+
 
 
 ### **4.4. Frameworks**
-1. **[WRITE_NAME_HERE]**
-    - **Purpose**: ...
-    - **Reason**: ...
-2. ...
+
+1. **TypeScript + NodeJS (Backend)**  
+   - **Purpose**: Provide a strongly typed, event-driven runtime for our application API.  
+   - **Reason**: Required by this class.  
+
+2. **Kotlin + Android Studio (Frontend)**  
+   - **Purpose**: Build the user interface for our application.  
+   - **Reason**: Required by this class.  
+
 
 
 ### **4.5. Dependencies Diagram**
+![Use Case Diagram](./images/Dependencies_Diagram.png)
 
+<!-- 
 
 ### **4.6. Use Case Sequence Diagram (5 Most Major Use Cases)**
 1. [**[WRITE_NAME_HERE]**](#uc1)\
@@ -252,3 +303,5 @@ DormDash provides a complete, stress-free solution. Through an Uber-like app, st
 1. [**[WRITE_NAME_HERE]**](#nfr1)
     - **Validation**: ...
 2. ...
+
+--!>
