@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { HobbyController } from './hobby.controller';
+import { HobbyController } from '../controllers/hobby.controller';
 
 const router = Router();
 const hobbyController = new HobbyController();

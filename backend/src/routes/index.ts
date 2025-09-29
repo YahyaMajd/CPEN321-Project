@@ -1,8 +1,8 @@
 import { Router } from 'express';
 
-import { authenticateToken } from './auth.middleware';
+import { authenticateToken } from '../middleware/auth.middleware';
 import authRoutes from './auth.routes';
-import hobbiesRoutes from './hobbies.routes';
+import hobbiesRoutes from './hobby.routes';
 import mediaRoutes from './media.routes';
 import usersRoutes from './user.routes';
 

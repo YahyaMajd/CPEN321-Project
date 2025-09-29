@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 
-import logger from './logger.util';
+import logger from '../utils/logger.util';
 
 export const notFoundHandler = (req: Request, res: Response) => {
   res.status(404).json({

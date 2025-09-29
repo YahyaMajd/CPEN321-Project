@@ -1,4 +1,4 @@
-import { HOBBIES } from './hobbies';
+import { HOBBIES } from '../constants/hobbies';
 
 export type GetAllHobbiesResponse = {
   message: string;
