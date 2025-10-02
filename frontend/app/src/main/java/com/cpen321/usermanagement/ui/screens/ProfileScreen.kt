@@ -48,6 +48,7 @@ data class ProfileScreenActions(
     val onBackClick: () -> Unit,
     val onManageProfileClick: () -> Unit,
     val onManageHobbiesClick: () -> Unit,
+    val onSignOut: () -> Unit,
     val onAccountDeleted: () -> Unit
 )
 
@@ -56,6 +57,7 @@ private data class ProfileScreenCallbacks(
     val onManageProfileClick: () -> Unit,
     val onManageHobbiesClick: () -> Unit,
     val onDeleteAccountClick: () -> Unit,
+    val onSignOutClick: () -> Unit,
     val onDeleteDialogDismiss: () -> Unit,
     val onDeleteDialogConfirm: () -> Unit,
     val onSuccessMessageShown: () -> Unit,
@@ -93,11 +95,21 @@ fun ProfileScreen(
             onDeleteAccountClick = {
                 dialogState = dialogState.copy(showDeleteDialog = true)
             },
+            onSignOutClick= {
+                authViewModel.handleSignout()
+                actions.onSignOut()
+            },
             onDeleteDialogDismiss = {
                 dialogState = dialogState.copy(showDeleteDialog = false)
             },
             onDeleteDialogConfirm = {
                 dialogState = dialogState.copy(showDeleteDialog = false)
+                profileViewModel.deleteAccount(
+                    onSuccess = {
+                        authViewModel.handleAccountDeletion()
+                        actions.onAccountDeleted()
+                    }
+                )
                 authViewModel.handleAccountDeletion()
                 actions.onAccountDeleted()
             },
@@ -134,11 +146,13 @@ private fun ProfileContent(
         }
     ) { paddingValues ->
         ProfileBody(
+
             paddingValues = paddingValues,
             isLoading = uiState.isLoadingProfile,
             onManageProfileClick = callbacks.onManageProfileClick,
             onManageHobbiesClick = callbacks.onManageHobbiesClick,
-            onDeleteAccountClick = callbacks.onDeleteAccountClick
+            onDeleteAccountClick = callbacks.onDeleteAccountClick,
+            onSignOutClick = callbacks.onSignOutClick
         )
     }
 
@@ -184,6 +198,7 @@ private fun ProfileBody(
     onManageProfileClick: () -> Unit,
     onManageHobbiesClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
+    onSignOutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -202,6 +217,7 @@ private fun ProfileBody(
                 ProfileMenuItems(
                     onManageProfileClick = onManageProfileClick,
                     onManageHobbiesClick = onManageHobbiesClick,
+                    onSignOutClick = onSignOutClick,
                     onDeleteAccountClick = onDeleteAccountClick
                 )
             }
@@ -213,6 +229,7 @@ private fun ProfileBody(
 private fun ProfileMenuItems(
     onManageProfileClick: () -> Unit,
     onManageHobbiesClick: () -> Unit,
+    onSignOutClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -232,6 +249,7 @@ private fun ProfileMenuItems(
         )
 
         AccountSection(
+            onSignOutClick =  onSignOutClick,
             onDeleteAccountClick = onDeleteAccountClick
         )
     }
@@ -254,6 +272,7 @@ private fun ProfileSection(
 
 @Composable
 private fun AccountSection(
+    onSignOutClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -261,6 +280,7 @@ private fun AccountSection(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.medium)
     ) {
+        SignOutButton (onClick = onSignOutClick)
         DeleteAccountButton(onClick = onDeleteAccountClick)
     }
 }
@@ -287,6 +307,16 @@ private fun ManageHobbiesButton(
     )
 }
 
+@Composable
+private fun SignOutButton(
+    onClick: () -> Unit,
+){
+    MenuButtonItem(
+        text = stringResource(R.string.sign_out),
+        iconRes = R.drawable.ic_sign_out,
+        onClick = onClick,
+    )
+}
 @Composable
 private fun DeleteAccountButton(
     onClick: () -> Unit,

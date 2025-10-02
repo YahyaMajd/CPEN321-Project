@@ -169,6 +169,23 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    fun handleSignout(){
+        viewModelScope.launch {
+            authRepository.clearToken()
+            _uiState.value  = AuthUiState(
+                isAuthenticated = false,
+                isCheckingAuth = false,
+                shouldSkipAuthCheck = true
+            )
+            navigationStateManager.updateAuthenticationState(
+                isAuthenticated = false,
+                needsProfileCompletion = false,
+                isLoading = false,
+                currentRoute = NavRoutes.AUTH
+            )
+
+        }
+    }
     fun handleAccountDeletion() {
         viewModelScope.launch {
             authRepository.clearToken()

@@ -21,6 +21,7 @@
     <string name="manage_profile">Manage Profile</string>
     <string name="manage_hobbies">Manage Hobbies</string>
     <string name="delete_account">Delete Account</string>
+    <string name="sign_out">Sign Out</string>
     <string name="delete_account_confirmation">Are you sure you want to delete your account and data?\nThis action cannot be undone. Your Google account will not be affected.</string>
     <string name="confirm">Confirm</string>
     <string name="cancel">Cancel</string>
