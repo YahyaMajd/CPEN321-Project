@@ -110,11 +110,46 @@ private fun NoActiveOrderContent(
 
 @Composable
 private fun ActiveOrderContent() {
-    // Future implementation for active order state
-    // Will show order details, progress, ETA, etc.
-    Text(
-        text = "Active Order Content - Coming Soon",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Order Status Icon
+        Icon(
+            imageVector = Icons.Filled.ShoppingCart,
+            contentDescription = "Active order",
+            modifier = Modifier.size(48.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Order Status
+        Text(
+            text = "Order Active",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // Status message
+        Text(
+            text = "Your moving order has been created successfully!",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // View Details Button (placeholder for now)
+        Button(
+            onClick = { /* TODO: Navigate to order details */ },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text("View Order Details")
+        }
+    }
 }

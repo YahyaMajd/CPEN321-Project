@@ -42,17 +42,24 @@ import com.cpen321.usermanagement.ui.components.OrderPanel
 import com.cpen321.usermanagement.ui.components.StatusPanel
 import com.cpen321.usermanagement.ui.components.CreateOrderBottomSheet
 import com.cpen321.usermanagement.data.local.models.OrderRequest
+import com.cpen321.usermanagement.data.repository.OrderRepository
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 @Composable
 fun StudentMainScreen(
     mainViewModel: MainViewModel,
+    orderRepository: OrderRepository = remember { OrderRepository() }, // Create repository instance
     onProfileClick: () -> Unit
 ) {
     val uiState by mainViewModel.uiState.collectAsState()
+    val activeOrder by orderRepository.activeOrder.collectAsState() // Watch active order
     val snackBarHostState = remember { SnackbarHostState() }
 
     MainContent(
         uiState = uiState,
+        activeOrder = activeOrder,
+        orderRepository = orderRepository,
         snackBarHostState = snackBarHostState,
         onProfileClick = onProfileClick,
         onSuccessMessageShown = mainViewModel::clearSuccessMessage
@@ -63,6 +70,8 @@ fun StudentMainScreen(
 @Composable
 private fun MainContent(
     uiState: MainUiState,
+    activeOrder: com.cpen321.usermanagement.data.local.models.Order?,
+    orderRepository: OrderRepository,
     snackBarHostState: SnackbarHostState,
     onProfileClick: () -> Unit,
     onSuccessMessageShown: () -> Unit,
@@ -70,6 +79,7 @@ private fun MainContent(
 ) {
     var showCreateOrderSheet by remember { mutableStateOf(false) }
     val bottomSheetState = rememberModalBottomSheetState()
+    val coroutineScope = rememberCoroutineScope()
     
     Scaffold(
         modifier = modifier,
@@ -86,6 +96,7 @@ private fun MainContent(
     ) { paddingValues ->
         MainBody(
             paddingValues = paddingValues,
+            activeOrder = activeOrder,
             onCreateOrderClick = { showCreateOrderSheet = true }
         )
     }
@@ -99,11 +110,16 @@ private fun MainContent(
             CreateOrderBottomSheet(
                 onDismiss = { showCreateOrderSheet = false },
                 onSubmitOrder = { orderRequest ->
-                    // Handle order submission
-                    println("Order submitted: $orderRequest")
-
+                    // Handle order submission with repository
+                    coroutineScope.launch {
+                        val result = orderRepository.submitOrder(orderRequest)
+                        if (result.isSuccess) {
+                            println("Order submitted successfully: ${result.getOrNull()}")
+                        } else {
+                            println("Order submission failed: ${result.exceptionOrNull()}")
+                        }
+                    }
                     showCreateOrderSheet = false
-                    // TODO: Add to repository/backend
                 }
             )
         }
@@ -196,6 +212,7 @@ private fun MainSnackbarHost(
 @Composable
 private fun MainBody(
     paddingValues: PaddingValues,
+    activeOrder: com.cpen321.usermanagement.data.local.models.Order?,
     onCreateOrderClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -208,13 +225,13 @@ private fun MainBody(
     ) {
         // Order Panel (Main centerpiece)
         OrderPanel(
-            hasActiveOrder = false, // For now, always false
+            hasActiveOrder = activeOrder != null, // Real state!
             onCreateOrderClick = onCreateOrderClick
         )
         
         // Status Panel (Hidden when no active order)
         StatusPanel(
-            hasActiveOrder = false // For now, always false
+            hasActiveOrder = activeOrder != null // Real state!
         )
     }
 }
