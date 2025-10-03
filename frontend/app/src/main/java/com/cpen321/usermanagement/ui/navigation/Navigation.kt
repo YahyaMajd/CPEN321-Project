@@ -17,9 +17,12 @@ import com.cpen321.usermanagement.ui.screens.LoadingScreen
 import com.cpen321.usermanagement.ui.screens.MainScreen
 import com.cpen321.usermanagement.ui.screens.ManageHobbiesScreen
 import com.cpen321.usermanagement.ui.screens.ManageProfileScreen
+import com.cpen321.usermanagement.ui.screens.MoverMainScreen
 import com.cpen321.usermanagement.ui.screens.ProfileScreenActions
 import com.cpen321.usermanagement.ui.screens.ProfileCompletionScreen
 import com.cpen321.usermanagement.ui.screens.ProfileScreen
+import com.cpen321.usermanagement.ui.screens.RoleSelectionScreen
+import com.cpen321.usermanagement.ui.screens.StudentMainScreen
 import com.cpen321.usermanagement.ui.viewmodels.AuthViewModel
 import com.cpen321.usermanagement.ui.viewmodels.MainViewModel
 import com.cpen321.usermanagement.ui.viewmodels.NavigationViewModel
@@ -29,7 +32,12 @@ object NavRoutes {
     const val LOADING = "loading"
     const val AUTH = "auth"
     const val MAIN = "main"
+
+    const val STUDENT = "student"
+
+    const val MOVER = "mover"
     const val PROFILE = "profile"
+    const val ROLE_SELECTION = "role_selection"
     const val MANAGE_PROFILE = "manage_profile"
     const val MANAGE_HOBBIES = "manage_hobbies"
     const val PROFILE_COMPLETION = "profile_completion"
@@ -128,6 +136,43 @@ private fun handleNavigationEvent(
             navigationStateManager.clearNavigationEvent()
         }
 
+        is NavigationEvent.NavigateToRoleSelection -> {
+            navController.navigate(NavRoutes.ROLE_SELECTION) {
+                popUpTo(0) { inclusive = true }
+            }
+            navigationStateManager.clearNavigationEvent()
+        }
+
+        is NavigationEvent.NavigateToStudentMain -> {
+            navController.navigate(NavRoutes.STUDENT) {
+                popUpTo(0) { inclusive = true }
+            }
+            navigationStateManager.clearNavigationEvent()
+        }
+
+        is NavigationEvent.NavigateToStudentMainWithMessage -> {
+            mainViewModel.setSuccessMessage(navigationEvent.message)
+            navController.navigate(NavRoutes.STUDENT) {
+                popUpTo(0) { inclusive = true }
+            }
+            navigationStateManager.clearNavigationEvent()
+        }
+
+        is NavigationEvent.NavigateToMoverMain -> {
+            navController.navigate(NavRoutes.MOVER) {
+                popUpTo(0) { inclusive = true }
+            }
+            navigationStateManager.clearNavigationEvent()
+        }
+
+        is NavigationEvent.NavigateToMoverMainWithMessage -> {
+            mainViewModel.setSuccessMessage(navigationEvent.message)
+            navController.navigate(NavRoutes.MOVER) {
+                popUpTo(0) { inclusive = true }
+            }
+            navigationStateManager.clearNavigationEvent()
+        }
+
         is NavigationEvent.NavigateBack -> {
             navController.popBackStack()
             navigationStateManager.clearNavigationEvent()
@@ -207,6 +252,28 @@ private fun AppNavHost(
             ManageHobbiesScreen(
                 profileViewModel = profileViewModel,
                 onBackClick = { navigationStateManager.navigateBack() }
+            )
+        }
+
+        composable(NavRoutes.ROLE_SELECTION) {
+            RoleSelectionScreen(
+                onRoleSelected = { role: String ->
+                    authViewModel.selectUserRole(role)
+                }
+            )
+        }
+
+        composable(NavRoutes.STUDENT) {
+            StudentMainScreen(
+                mainViewModel = mainViewModel,
+                onProfileClick = { navigationStateManager.navigateToProfile() }
+                )
+        }
+
+        composable(NavRoutes.MOVER) {
+            MoverMainScreen(
+                mainViewModel = mainViewModel,
+                onProfileClick = { navigationStateManager.navigateToProfile() }
             )
         }
     }

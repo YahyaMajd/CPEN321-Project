@@ -12,6 +12,11 @@ import logger from '../utils/logger.util';
 
 const userSchema = new Schema<IUser>(
   {
+    userRole: {
+      type: String,
+      enum: ['STUDENT', 'MOVER'],
+      required: false,  // Optional during signup, required after role selection
+    },
     googleId: {
       type: String,
       required: true,

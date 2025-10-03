@@ -4,8 +4,12 @@ import { HOBBIES } from '../constants/hobbies';
 
 // User model
 // ------------------------------------------------------------
+
+export type UserRole = 'STUDENT' | 'MOVER';
+  
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
+  userRole?: UserRole;  // Optional - set after signup
   googleId: string;
   email: string;
   name: string;
@@ -37,6 +41,11 @@ export const updateProfileSchema = z.object({
     })
     .optional(),
   profilePicture: z.string().min(1).optional(),
+  userRole: z.enum(['STUDENT', 'MOVER']).optional(),
+});
+
+export const selectRoleSchema = z.object({
+  userRole: z.enum(['STUDENT', 'MOVER']),
 });
 
 // Request types
@@ -49,6 +58,7 @@ export type GetProfileResponse = {
 };
 
 export type UpdateProfileRequest = z.infer<typeof updateProfileSchema>;
+export type SelectRoleRequest = z.infer<typeof selectRoleSchema>;
 
 // Generic types
 // ------------------------------------------------------------

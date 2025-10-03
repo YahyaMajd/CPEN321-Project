@@ -13,6 +13,7 @@ data class ProfileData(
 
 data class User(
     val _id: String,
+    val userRole: String? = null,
     val email: String,
     val name: String,
     val bio: String?,

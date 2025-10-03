@@ -191,6 +191,37 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun selectUserRole(role: String): Result<User> {
+        val selectRoleRequest = AuthInterface.SelectRoleRequest(role)
+        return try {
+            val response = authInterface.selectUserRole(selectRoleRequest)
+            if (response.isSuccessful && response.body()?.data != null) {
+                val user = response.body()!!.data!!
+                Result.success(user)
+            } else {
+                val errorBodyString = response.errorBody()?.string()
+                val errorMessage = JsonUtils.parseErrorMessage(
+                    errorBodyString,
+                    response.body()?.message ?: "Failed to select user role."
+                )
+                Log.e(TAG, "Role selection failed: $errorMessage")
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: java.net.SocketTimeoutException) {
+            Log.e(TAG, "Network timeout during role selection", e)
+            Result.failure(e)
+        } catch (e: java.net.UnknownHostException) {
+            Log.e(TAG, "Network connection failed during role selection", e)
+            Result.failure(e)
+        } catch (e: java.io.IOException) {
+            Log.e(TAG, "IO error during role selection", e)
+            Result.failure(e)
+        } catch (e: retrofit2.HttpException) {
+            Log.e(TAG, "HTTP error during role selection: ${e.code()}", e)
+            Result.failure(e)
+        }
+    }
+
     override suspend fun isUserAuthenticated(): Boolean {
         val isLoggedIn = doesTokenExist()
         if (isLoggedIn) {

@@ -63,6 +63,7 @@ class AuthViewModel @Inject constructor(
                 val isAuthenticated = authRepository.isUserAuthenticated()
                 val user = if (isAuthenticated) authRepository.getCurrentUser() else null
                 val needsProfileCompletion = user?.bio == null || user.bio.isBlank()
+                val needsRoleSelection = user?.userRole == null
 
                 _uiState.value = _uiState.value.copy(
                     isAuthenticated = isAuthenticated,
@@ -73,7 +74,9 @@ class AuthViewModel @Inject constructor(
                 updateNavigationState(
                     isAuthenticated = isAuthenticated,
                     needsProfileCompletion = needsProfileCompletion,
-                    isLoading = false
+                    needsRoleSelection = needsRoleSelection,
+                    isLoading = false,
+                    userRole = user?.userRole
                 )
             } catch (e: java.net.SocketTimeoutException) {
                 handleAuthError("Network timeout. Please check your connection.", e)
@@ -88,13 +91,17 @@ class AuthViewModel @Inject constructor(
     private fun updateNavigationState(
         isAuthenticated: Boolean = false,
         needsProfileCompletion: Boolean = false,
-        isLoading: Boolean = false
+        needsRoleSelection: Boolean = false,
+        isLoading: Boolean = false,
+        userRole: String? = null
     ) {
         navigationStateManager.updateAuthenticationState(
             isAuthenticated = isAuthenticated,
             needsProfileCompletion = needsProfileCompletion,
             isLoading = isLoading,
-            currentRoute = NavRoutes.LOADING
+            currentRoute = NavRoutes.LOADING,
+            needsRoleSelection = needsRoleSelection,
+            userRole = userRole
         )
     }
 
@@ -128,6 +135,7 @@ class AuthViewModel @Inject constructor(
                 .onSuccess { authData ->
                     val needsProfileCompletion =
                         authData.user.bio == null || authData.user.bio.isBlank()
+                    val needsRoleSelection = authData.user.userRole == null
 
                     _uiState.value = _uiState.value.copy(
                         isSigningIn = false,
@@ -142,7 +150,9 @@ class AuthViewModel @Inject constructor(
                         isAuthenticated = true,
                         needsProfileCompletion = needsProfileCompletion,
                         isLoading = false,
-                        currentRoute = NavRoutes.AUTH
+                        currentRoute = NavRoutes.AUTH,
+                        needsRoleSelection = needsRoleSelection,
+                        userRole = authData.user.userRole
                     )
                 }
                 .onFailure { error ->
@@ -166,6 +176,29 @@ class AuthViewModel @Inject constructor(
     fun handleGoogleSignUpResult(credential: GoogleIdTokenCredential) {
         handleGoogleAuthResult(credential, isSignUp = true) { idToken ->
             authRepository.googleSignUp(idToken)
+        }
+    }
+
+    fun selectUserRole(role: String) {
+        viewModelScope.launch {
+            authRepository.selectUserRole(role)
+                .onSuccess { user ->
+                    // Update UI state with the user containing the role
+                    _uiState.value = _uiState.value.copy(user = user)
+                    
+                    // Navigate to appropriate role-specific home screen
+                    val needsProfileCompletion = user.bio.isNullOrBlank()
+                    val userRole = user.userRole ?: role // Use the role from user or fallback to selected role
+                    navigationStateManager.handleRoleSelectionWithMessage(
+                        userRole = userRole,
+                        message = "Welcome! Your role has been set to ${userRole.lowercase().replaceFirstChar { it.uppercase() }}",
+                        needsProfileCompletion = needsProfileCompletion
+                    )
+                }
+                .onFailure { error ->
+                    Log.e(TAG, "Role selection failed", error)
+                    _uiState.value = _uiState.value.copy(errorMessage = error.message)
+                }
         }
     }
 

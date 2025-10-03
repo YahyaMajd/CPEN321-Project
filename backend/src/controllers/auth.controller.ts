@@ -6,6 +6,8 @@ import {
   AuthenticateUserResponse,
 } from '../types/auth.types';
 import logger from '../utils/logger.util';
+import { UserRole } from '../types/user.types';
+import { userModel } from '../models/user.model';
 
 export class AuthController {
   async signUp(
@@ -86,6 +88,40 @@ export class AuthController {
         }
       }
 
+      next(error);
+    }
+  }
+
+  async selectRole(
+    req: Request<unknown, unknown, {userRole: UserRole}>,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const user = req.user!; // From JWT middleware
+      const { userRole } = req.body;
+      
+      const updatedUser = await userModel.update(user._id, { userRole });
+      
+      if (!updatedUser) {
+        return res.status(404).json({
+          message: 'User not found',
+        });
+      }
+      
+      return res.status(200).json({
+        message: 'Role selected successfully',
+        data: { user: updatedUser }
+      });
+    } catch (error) {
+      logger.error('Role selection failed:', error);
+      
+      if (error instanceof Error) {
+        return res.status(500).json({
+          message: error.message || 'Failed to select role',
+        });
+      }
+      
       next(error);
     }
   }
