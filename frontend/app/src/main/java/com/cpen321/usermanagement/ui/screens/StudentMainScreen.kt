@@ -1,24 +1,31 @@
 package com.cpen321.usermanagement.ui.screens
 
 import Icon
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -31,6 +38,10 @@ import com.cpen321.usermanagement.ui.viewmodels.MainViewModel
 import com.cpen321.usermanagement.ui.viewmodels.AuthViewModel
 import com.cpen321.usermanagement.ui.theme.LocalFontSizes
 import com.cpen321.usermanagement.ui.theme.LocalSpacing
+import com.cpen321.usermanagement.ui.components.OrderPanel
+import com.cpen321.usermanagement.ui.components.StatusPanel
+import com.cpen321.usermanagement.ui.components.CreateOrderBottomSheet
+import com.cpen321.usermanagement.data.local.models.OrderRequest
 
 @Composable
 fun StudentMainScreen(
@@ -48,6 +59,7 @@ fun StudentMainScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainContent(
     uiState: MainUiState,
@@ -56,6 +68,9 @@ private fun MainContent(
     onSuccessMessageShown: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showCreateOrderSheet by remember { mutableStateOf(false) }
+    val bottomSheetState = rememberModalBottomSheetState()
+    
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -69,7 +84,29 @@ private fun MainContent(
             )
         }
     ) { paddingValues ->
-        MainBody(paddingValues = paddingValues)
+        MainBody(
+            paddingValues = paddingValues,
+            onCreateOrderClick = { showCreateOrderSheet = true }
+        )
+    }
+    
+    // Create Order Bottom Sheet
+    if (showCreateOrderSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showCreateOrderSheet = false },
+            sheetState = bottomSheetState
+        ) {
+            CreateOrderBottomSheet(
+                onDismiss = { showCreateOrderSheet = false },
+                onSubmitOrder = { orderRequest ->
+                    // Handle order submission
+                    println("Order submitted: $orderRequest")
+
+                    showCreateOrderSheet = false
+                    // TODO: Add to repository/backend
+                }
+            )
+        }
     }
 }
 
@@ -159,15 +196,26 @@ private fun MainSnackbarHost(
 @Composable
 private fun MainBody(
     paddingValues: PaddingValues,
+    onCreateOrderClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(paddingValues),
-        contentAlignment = Alignment.Center
+            .padding(paddingValues)
+            .padding(top = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        WelcomeMessage()
+        // Order Panel (Main centerpiece)
+        OrderPanel(
+            hasActiveOrder = false, // For now, always false
+            onCreateOrderClick = onCreateOrderClick
+        )
+        
+        // Status Panel (Hidden when no active order)
+        StatusPanel(
+            hasActiveOrder = false // For now, always false
+        )
     }
 }
 
