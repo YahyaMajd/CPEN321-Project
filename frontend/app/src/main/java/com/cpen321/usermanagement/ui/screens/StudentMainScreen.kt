@@ -42,24 +42,29 @@ import com.cpen321.usermanagement.ui.components.OrderPanel
 import com.cpen321.usermanagement.ui.components.StatusPanel
 import com.cpen321.usermanagement.ui.components.CreateOrderBottomSheet
 import com.cpen321.usermanagement.data.local.models.OrderRequest
-import com.cpen321.usermanagement.data.repository.OrderRepository
+//import com.cpen321.usermanagement.data.repository.OrderRepository
+import com.cpen321.usermanagement.ui.viewmodels.OrderViewModel
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.collection.orderedScatterSetOf
 
 @Composable
 fun StudentMainScreen(
     mainViewModel: MainViewModel,
-    orderRepository: OrderRepository = remember { OrderRepository() }, // Create repository instance
+    orderViewModel: OrderViewModel,
+    //orderRepository: OrderRepository = remember { OrderRepository() }, // Create repository instance
     onProfileClick: () -> Unit
 ) {
     val uiState by mainViewModel.uiState.collectAsState()
-    val activeOrder by orderRepository.activeOrder.collectAsState() // Watch active order
+    val activeOrder by orderViewModel.activeOrder.collectAsState() // Watch active order
+    //val activeOrder by orderRepository.activeOrder.collectAsState() // Watch active order
     val snackBarHostState = remember { SnackbarHostState() }
 
     MainContent(
         uiState = uiState,
         activeOrder = activeOrder,
-        orderRepository = orderRepository,
+        orderViewModel = orderViewModel,
+        //orderRepository = orderRepository,
         snackBarHostState = snackBarHostState,
         onProfileClick = onProfileClick,
         onSuccessMessageShown = mainViewModel::clearSuccessMessage
@@ -71,7 +76,8 @@ fun StudentMainScreen(
 private fun MainContent(
     uiState: MainUiState,
     activeOrder: com.cpen321.usermanagement.data.local.models.Order?,
-    orderRepository: OrderRepository,
+    orderViewModel: OrderViewModel,
+    //orderRepository: OrderRepository,
     snackBarHostState: SnackbarHostState,
     onProfileClick: () -> Unit,
     onSuccessMessageShown: () -> Unit,
@@ -112,11 +118,12 @@ private fun MainContent(
                 onSubmitOrder = { orderRequest ->
                     // Handle order submission with repository
                     coroutineScope.launch {
-                        val result = orderRepository.submitOrder(orderRequest)
-                        if (result.isSuccess) {
-                            println("Order submitted successfully: ${result.getOrNull()}")
-                        } else {
-                            println("Order submission failed: ${result.exceptionOrNull()}")
+                       // val result = orderRepository.submitOrder(orderRequest)
+                        val result = orderViewModel.submitOrder(orderRequest)
+                        result.onSuccess { order ->
+                            println("Order submitted successfully: $order")
+                        }.onFailure { exception ->
+                            println("Order submission failed: $exception")
                         }
                     }
                     showCreateOrderSheet = false

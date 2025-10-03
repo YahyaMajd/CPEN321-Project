@@ -26,6 +26,7 @@ import com.cpen321.usermanagement.ui.screens.StudentMainScreen
 import com.cpen321.usermanagement.ui.viewmodels.AuthViewModel
 import com.cpen321.usermanagement.ui.viewmodels.MainViewModel
 import com.cpen321.usermanagement.ui.viewmodels.NavigationViewModel
+import com.cpen321.usermanagement.ui.viewmodels.OrderViewModel
 import com.cpen321.usermanagement.ui.viewmodels.ProfileViewModel
 
 object NavRoutes {
@@ -55,7 +56,7 @@ fun AppNavigation(
     val authViewModel: AuthViewModel = hiltViewModel()
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val mainViewModel: MainViewModel = hiltViewModel()
-
+    val orderViewModel: OrderViewModel = hiltViewModel()
     // Handle navigation events from NavigationStateManager
     LaunchedEffect(navigationEvent) {
         handleNavigationEvent(
@@ -63,6 +64,7 @@ fun AppNavigation(
             navController,
             navigationStateManager,
             authViewModel,
+            orderViewModel,
             mainViewModel
         )
     }
@@ -72,6 +74,7 @@ fun AppNavigation(
         authViewModel = authViewModel,
         profileViewModel = profileViewModel,
         mainViewModel = mainViewModel,
+        orderViewModel = orderViewModel,
         navigationStateManager = navigationStateManager
     )
 }
@@ -81,6 +84,7 @@ private fun handleNavigationEvent(
     navController: NavHostController,
     navigationStateManager: NavigationStateManager,
     authViewModel: AuthViewModel,
+    orderViewModel: OrderViewModel,
     mainViewModel: MainViewModel
 ) {
     when (navigationEvent) {
@@ -195,6 +199,7 @@ private fun AppNavHost(
     authViewModel: AuthViewModel,
     profileViewModel: ProfileViewModel,
     mainViewModel: MainViewModel,
+    orderViewModel: OrderViewModel,
     navigationStateManager: NavigationStateManager
 ) {
     NavHost(
@@ -266,6 +271,7 @@ private fun AppNavHost(
         composable(NavRoutes.STUDENT) {
             StudentMainScreen(
                 mainViewModel = mainViewModel,
+                orderViewModel = orderViewModel,
                 onProfileClick = { navigationStateManager.navigateToProfile() }
                 )
         }

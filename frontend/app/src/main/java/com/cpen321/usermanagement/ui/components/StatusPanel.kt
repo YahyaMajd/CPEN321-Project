@@ -108,26 +108,26 @@ private fun ActiveOrderStatusContent(
             StatusDetailRow(
                 icon = Icons.Default.CheckCircle,
                 label = "Status",
-                value = if (orderStatus.isNotEmpty()) orderStatus else "In Progress"
+                value = if (orderStatus.isNotEmpty()) orderStatus else "Pending"
             )
             
             StatusDetailRow(
                 icon = Icons.Default.LocationOn,
                 label = "Current Location",
-                value = if (currentLocation.isNotEmpty()) currentLocation else "On the way"
+                value = if (currentLocation.isNotEmpty()) currentLocation else "Mover's Location"
             )
             
             StatusDetailRow(
                 icon = Icons.Default.Person,
                 label = "Mover",
-                value = if (moverName.isNotEmpty()) moverName else "John Doe"
+                value = if (moverName.isNotEmpty()) moverName else "Mover Name"
             )
             
             // ETA Section
             if (estimatedArrival.isNotEmpty() || true) { // Show placeholder for now
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "ETA: ${if (estimatedArrival.isNotEmpty()) estimatedArrival else "15 minutes"}",
+                    text = "ETA: ${if (estimatedArrival.isNotEmpty()) estimatedArrival else "Movers ETA"}",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary
