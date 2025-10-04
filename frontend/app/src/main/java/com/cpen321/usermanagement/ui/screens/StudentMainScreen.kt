@@ -233,6 +233,7 @@ private fun MainBody(
         // Order Panel (Main centerpiece)
         OrderPanel(
             hasActiveOrder = activeOrder != null, // Real state!
+            activeOrder = activeOrder, // Pass the actual order data
             onCreateOrderClick = onCreateOrderClick
         )
         

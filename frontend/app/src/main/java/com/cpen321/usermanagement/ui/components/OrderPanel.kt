@@ -2,6 +2,7 @@ package com.cpen321.usermanagement.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,10 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.cpen321.usermanagement.data.local.models.totalBoxes
 
 @Composable
 fun OrderPanel(
     hasActiveOrder: Boolean = false,
+    activeOrder: com.cpen321.usermanagement.data.local.models.Order? = null,
     onCreateOrderClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -50,8 +53,8 @@ fun OrderPanel(
                 // No Active Order State
                 NoActiveOrderContent(onCreateOrderClick = onCreateOrderClick)
             } else {
-                // Future: Active Order State
-                ActiveOrderContent()
+                // Active Order State with Map
+                ActiveOrderContent(activeOrder = activeOrder)
             }
         }
     }
@@ -109,20 +112,12 @@ private fun NoActiveOrderContent(
 }
 
 @Composable
-private fun ActiveOrderContent() {
+private fun ActiveOrderContent(
+    activeOrder: com.cpen321.usermanagement.data.local.models.Order?
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Order Status Icon
-        Icon(
-            imageVector = Icons.Filled.ShoppingCart,
-            contentDescription = "Active order",
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
         // Order Status
         Text(
             text = "Order Active",
@@ -140,6 +135,50 @@ private fun ActiveOrderContent() {
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Map showing pickup location
+        if (activeOrder != null) {
+            OrderMapView(
+                address = activeOrder.pickupAddress,
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Order details
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Boxes",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${activeOrder.totalBoxes} boxes",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "Return Date",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = activeOrder.returnDate,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
         
         Spacer(modifier = Modifier.height(16.dp))
         
