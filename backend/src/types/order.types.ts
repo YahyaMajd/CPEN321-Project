@@ -59,12 +59,12 @@ export type OrderStatus = z.infer<typeof orderStatusSchema>;
 export type Order = {
     studentId: mongoose.Types.ObjectId;
     moverId?: mongoose.Types.ObjectId;
+    status: OrderStatus;
     volume: number;
+    price: number;
     studentAddress: Address;
+    warehouseAddress: Address;  
+    returnAddress?: Address;
     pickupTime: Date;
     returnTime: Date;
-    price: number;
-    warehouseAddress: Address;    
-    status: OrderStatus;
-    returnAddress?: Address;
 };
