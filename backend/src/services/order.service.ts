@@ -67,9 +67,17 @@ export class OrderService {
             const createdOrder = await orderModel.create(newOrder);
 
             return {
-                success: true, 
-                id: createdOrder._id,
-                message: "Order created successfully",
+                id: createdOrder._id.toString(),
+                studentId: createdOrder.studentId.toString(),
+                moverId: createdOrder.moverId?.toString(),
+                status: createdOrder.status,
+                volume: createdOrder.volume,
+                price: createdOrder.price,
+                studentAddress: createdOrder.studentAddress,
+                warehouseAddress: createdOrder.warehouseAddress,
+                returnAddress: createdOrder.returnAddress,
+                pickupTime: createdOrder.pickupTime,
+                returnTime: createdOrder.returnTime,
             };
         } catch (error) {
             logger.error("Error in createOrder service:", error);

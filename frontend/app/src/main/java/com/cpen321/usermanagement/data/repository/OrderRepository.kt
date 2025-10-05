@@ -141,10 +141,10 @@ class OrderRepository @Inject constructor(
                     currentHistory.add(0, order) // Add to beginning
                     _orderHistory.value = currentHistory
                     
-                    Result.success(order)
-                } ?: Result.failure(Exception("Empty response from server"))
+                    return Result.success(order)
+                } ?: return Result.failure(Exception("Empty response from server"))
             } else {
-                Result.failure(Exception("Failed to place order: ${response.message()}"))
+                return Result.failure(Exception("Failed to place order: ${response.message()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -163,8 +163,7 @@ class OrderRepository @Inject constructor(
         val currentOrder = _activeOrder.value
         if (currentOrder?.id == orderId) {
             val updatedOrder = currentOrder.copy(
-                status = newStatus,
-                updatedAt = System.currentTimeMillis()
+                status = newStatus
             )
             _activeOrder.value = updatedOrder
             
@@ -182,7 +181,7 @@ class OrderRepository @Inject constructor(
      * Complete order (move from active to history only)
      */
     suspend fun completeOrder(orderId: String) {
-        updateOrderStatus(orderId, OrderStatus.DELIVERED)
+        updateOrderStatus(orderId, OrderStatus.IN_STORAGE)
         // Keep in active until user dismisses or starts new order
     }
     
@@ -206,9 +205,9 @@ class OrderRepository @Inject constructor(
         if (currentOrder.id != orderId) return
         
         when (currentOrder.status) {
-            OrderStatus.PENDING -> updateOrderStatus(orderId, OrderStatus.CONFIRMED)
-            OrderStatus.CONFIRMED -> updateOrderStatus(orderId, OrderStatus.IN_TRANSIT)
-            OrderStatus.IN_TRANSIT -> updateOrderStatus(orderId, OrderStatus.DELIVERED)
+            OrderStatus.PENDING -> updateOrderStatus(orderId, OrderStatus.ACCEPTED)
+            OrderStatus.ACCEPTED -> updateOrderStatus(orderId, OrderStatus.PICKED_UP)
+            OrderStatus.PICKED_UP -> updateOrderStatus(orderId, OrderStatus.IN_STORAGE)
             else -> { /* No change */ }
         }
     }

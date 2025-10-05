@@ -40,10 +40,8 @@ export type GetQuoteResponse = {
 
 export type CreateOrderRequest = z.infer<typeof createOrderSchema>;
 
-export type CreateOrderResponse = {
-  success: boolean,
-  id?: mongoose.Types.ObjectId,
-  message: string
+export type CreateOrderResponse = Order & {
+  id: string;
 }
 
 // Generic type

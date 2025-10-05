@@ -25,39 +25,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cpen321.usermanagement.data.local.models.Order
+import com.cpen321.usermanagement.data.local.models.OrderStatus
+import com.cpen321.usermanagement.data.local.models.displayText
+import com.cpen321.usermanagement.data.local.models.Address
 
 @Composable
 fun StatusPanel(
-    hasActiveOrder: Boolean = false,
-    // Future parameters for active order data
-    orderStatus: String = "",
-    estimatedArrival: String = "",
-    moverName: String = "",
-    currentLocation: String = "",
-    modifier: Modifier = Modifier
+    activeOrder: Order?
 ) {
-    if (hasActiveOrder) {
+    if (activeOrder != null) {
         // Show status when there's an active order
         ActiveOrderStatusContent(
-            orderStatus = orderStatus,
-            estimatedArrival = estimatedArrival,
-            moverName = moverName,
-            currentLocation = currentLocation,
-            modifier = modifier
+            order = activeOrder
         )
     } else {
         // Hidden placeholder when no active order
         // This maintains layout consistency without taking visual space
-        Spacer(modifier = modifier.height(0.dp))
+        Spacer(modifier = Modifier.height(0.dp))
     }
 }
 
 @Composable
 private fun ActiveOrderStatusContent(
-    orderStatus: String,
-    estimatedArrival: String,
-    moverName: String,
-    currentLocation: String,
+    order: Order,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -97,9 +88,16 @@ private fun ActiveOrderStatusContent(
                 )
             }
             
-            // Progress Indicator (placeholder)
+            // Progress Indicator (based on order status)
+            val progress = when (order.status) {
+                OrderStatus.PENDING -> 0.2f
+                OrderStatus.ACCEPTED -> 0.4f
+                OrderStatus.PICKED_UP -> 0.7f
+                OrderStatus.IN_STORAGE -> 1.0f
+                OrderStatus.CANCELLED -> 0.0f
+            }
             LinearProgressIndicator(
-                progress = 0.6f, // Future: calculate based on actual status
+                progress = { progress },
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.primary
             )
@@ -108,31 +106,37 @@ private fun ActiveOrderStatusContent(
             StatusDetailRow(
                 icon = Icons.Default.CheckCircle,
                 label = "Status",
-                value = if (orderStatus.isNotEmpty()) orderStatus else "Pending"
+                value = order.status.displayText
             )
             
             StatusDetailRow(
                 icon = Icons.Default.LocationOn,
-                label = "Current Location",
-                value = if (currentLocation.isNotEmpty()) currentLocation else "Mover's Location"
+                label = "Pickup Address",
+                value = order.studentAddress.formattedAddress
             )
             
+            // Volume info
             StatusDetailRow(
                 icon = Icons.Default.Person,
-                label = "Mover",
-                value = if (moverName.isNotEmpty()) moverName else "Mover Name"
+                label = "Volume",
+                value = "${order.volume} cubic units"
             )
             
-            // ETA Section
-            if (estimatedArrival.isNotEmpty() || true) { // Show placeholder for now
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "ETA: ${if (estimatedArrival.isNotEmpty()) estimatedArrival else "Movers ETA"}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
+            // Price info
+            StatusDetailRow(
+                icon = Icons.Default.Person,
+                label = "Total Price",
+                value = "$${String.format("%.2f", order.price)}"
+            )
+            
+            // Pickup Time Section
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Pickup Time: ${order.pickupTime}",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

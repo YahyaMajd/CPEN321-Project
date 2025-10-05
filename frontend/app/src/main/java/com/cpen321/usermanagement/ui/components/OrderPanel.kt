@@ -23,7 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.cpen321.usermanagement.data.local.models.totalBoxes
+import com.cpen321.usermanagement.data.local.models.Address
 
 @Composable
 fun OrderPanel(
@@ -141,7 +141,7 @@ private fun ActiveOrderContent(
         // Map showing pickup location
         if (activeOrder != null) {
             OrderMapView(
-                address = activeOrder.pickupAddress,
+                address = activeOrder.studentAddress.formattedAddress,
                 modifier = Modifier.fillMaxWidth()
             )
             
@@ -154,12 +154,12 @@ private fun ActiveOrderContent(
             ) {
                 Column {
                     Text(
-                        text = "Boxes",
+                        text = "Volume",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "${activeOrder.totalBoxes} boxes",
+                        text = "${activeOrder.volume} cubic units",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -172,7 +172,7 @@ private fun ActiveOrderContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = activeOrder.returnDate,
+                        text = activeOrder.returnTime,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )

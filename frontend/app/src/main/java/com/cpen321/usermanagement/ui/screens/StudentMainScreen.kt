@@ -122,11 +122,13 @@ private fun MainContent(
                         val result = orderViewModel.submitOrder(orderRequest)
                         result.onSuccess { order ->
                             println("Order submitted successfully: $order")
+                            // Order is now set in repository._activeOrder, StatusPanel will show it
                         }.onFailure { exception ->
                             println("Order submission failed: $exception")
                         }
+                        // Close sheet after async operation completes
+                        showCreateOrderSheet = false
                     }
-                    showCreateOrderSheet = false
                 }
             )
         }
@@ -239,7 +241,7 @@ private fun MainBody(
         
         // Status Panel (Hidden when no active order)
         StatusPanel(
-            hasActiveOrder = activeOrder != null // Real state!
+            activeOrder = activeOrder // Pass the actual order data!
         )
     }
 }

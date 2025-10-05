@@ -33,22 +33,16 @@ class OrderViewModel @Inject constructor(
     private val _isSubmitting = MutableStateFlow(false)
     val isSubmitting = _isSubmitting.asStateFlow()
 
-    fun submitOrder(orderRequest: OrderRequest): Result<Order> {
-        var result: Result<Order>
-        result = Result.failure(Exception("Not initialized"))
-        viewModelScope.launch {
-            _isSubmitting.value = true
-            try {
-                result = repository.submitOrder(orderRequest)
-            } finally {
-                
-                _isSubmitting.value = false
-            }
+    suspend fun submitOrder(orderRequest: OrderRequest): Result<Order> {
+        _isSubmitting.value = true
+        return try {
+            val result = repository.submitOrder(orderRequest)
+            result
+        } catch (e: Exception) {
+            Result.failure(e)
+        } finally {
+            _isSubmitting.value = false
         }
-        if (result.isFailure) {
-            return Result.failure(result.exceptionOrNull()!!)
-        }
-        return Result.success(result.getOrNull()!!)
     }
 
     fun clearActiveOrder() {

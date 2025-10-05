@@ -1,41 +1,35 @@
 package com.cpen321.usermanagement.data.local.models
 
+import com.cpen321.usermanagement.data.local.models.Address
+
 enum class OrderStatus {
     PENDING,
-    CONFIRMED,
-    IN_TRANSIT,
-    DELIVERED,
+    ACCEPTED,
+    PICKED_UP,
+    IN_STORAGE,
     CANCELLED
 }
 
 data class Order(
-    val id: String,
-    val userId: String,
-    val boxQuantities: List<BoxQuantity>,
-    val pickupAddress: String,
-    val returnDate: String,
+    val id: String? = null,
+    val studentId: String,
+    val moverId: String? = null,
     val status: OrderStatus,
-    val createdAt: Long,
-    val updatedAt: Long = createdAt,
-    val estimatedPickupTime: String? = null,
-    val actualPickupTime: String? = null,
-    val estimatedDeliveryTime: String? = null,
-    val actualDeliveryTime: String? = null,
-    val moverName: String? = null,
-    val moverPhone: String? = null,
-    val trackingNotes: List<String> = emptyList()
+    val volume: Double,
+    val price: Double,
+    val studentAddress: Address,
+    val warehouseAddress: Address,
+    val returnAddress: Address? = null,
+    val pickupTime: String, // ISO date string
+    val returnTime: String  // ISO date string
 )
-
-// Helper extension to get total boxes
-val Order.totalBoxes: Int
-    get() = boxQuantities.sumOf { it.quantity }
 
 // Helper extension to get status display text
 val OrderStatus.displayText: String
     get() = when (this) {
         OrderStatus.PENDING -> "Pending Confirmation"
-        OrderStatus.CONFIRMED -> "Confirmed"
-        OrderStatus.IN_TRANSIT -> "In Transit"
-        OrderStatus.DELIVERED -> "Delivered"
+        OrderStatus.ACCEPTED -> "Accepted"
+        OrderStatus.PICKED_UP -> "Picked Up"
+        OrderStatus.IN_STORAGE -> "In Storage"
         OrderStatus.CANCELLED -> "Cancelled"
     }
