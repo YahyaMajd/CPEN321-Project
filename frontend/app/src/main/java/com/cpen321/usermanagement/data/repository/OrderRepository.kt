@@ -1,14 +1,18 @@
 package com.cpen321.usermanagement.data.repository
 
-import com.cpen321.usermanagement.data.local.models.Order
-import com.cpen321.usermanagement.data.local.models.OrderRequest
-import com.cpen321.usermanagement.data.local.models.OrderStatus
+import com.cpen321.usermanagement.data.local.models.*
+import com.cpen321.usermanagement.data.remote.api.OrderInterface
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class OrderRepository {
+@Singleton
+class OrderRepository @Inject constructor(
+    private val orderApi: OrderInterface
+) {
     
     // Local state management
     private val _activeOrder = MutableStateFlow<Order?>(null)
@@ -21,31 +25,50 @@ class OrderRepository {
     private fun getCurrentUserId(): String = "user_123"
     
     /**
-     * Submit order locally (for testing)
-     * Later: This will call backend API
+     * Get pricing quote from backend API
+     */
+    suspend fun getQuote(address: Address): Result<GetQuoteResponse> {
+        return try {
+            val request = GetQuoteRequest(
+                studentAddress = address,
+                studentId = getCurrentUserId()
+            )
+            val response = orderApi.getQuote(request)
+            
+            if (response.isSuccessful) {
+                response.body()?.let { quoteResponse ->
+                    Result.success(quoteResponse)
+                } ?: Result.failure(Exception("Empty response from server"))
+            } else {
+                Result.failure(Exception("Failed to get quote: ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Submit order to backend API
      */
     suspend fun submitOrder(orderRequest: OrderRequest): Result<Order> {
         return try {
-            val order = Order(
-                id = UUID.randomUUID().toString(),
-                userId = getCurrentUserId(),
-                boxQuantities = orderRequest.boxQuantities,
-                pickupAddress = orderRequest.currentAddress,
-                returnDate = orderRequest.returnDate,
-                status = OrderStatus.PENDING,
-                createdAt = System.currentTimeMillis(),
-                estimatedPickupTime = "Tomorrow 10:00 AM" // Mock data
-            )
+            val response = orderApi.placeOrder(orderRequest)
             
-            // Update active order
-            _activeOrder.value = order
-            
-            // Add to history
-            val currentHistory = _orderHistory.value.toMutableList()
-            currentHistory.add(0, order) // Add to beginning
-            _orderHistory.value = currentHistory
-            
-            Result.success(order)
+            if (response.isSuccessful) {
+                response.body()?.let { order ->
+                    // Update active order
+                    _activeOrder.value = order
+                    
+                    // Add to history
+                    val currentHistory = _orderHistory.value.toMutableList()
+                    currentHistory.add(0, order) // Add to beginning
+                    _orderHistory.value = currentHistory
+                    
+                    Result.success(order)
+                } ?: Result.failure(Exception("Empty response from server"))
+            } else {
+                Result.failure(Exception("Failed to place order: ${response.message()}"))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

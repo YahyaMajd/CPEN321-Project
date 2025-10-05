@@ -3,6 +3,7 @@ package com.cpen321.usermanagement.di
 import com.cpen321.usermanagement.data.remote.api.AuthInterface
 import com.cpen321.usermanagement.data.remote.api.HobbyInterface
 import com.cpen321.usermanagement.data.remote.api.ImageInterface
+import com.cpen321.usermanagement.data.remote.api.OrderInterface
 import com.cpen321.usermanagement.data.remote.api.RetrofitClient
 import com.cpen321.usermanagement.data.remote.api.UserInterface
 import dagger.Module
@@ -37,5 +38,11 @@ object NetworkModule {
     @Singleton
     fun provideHobbyService(): HobbyInterface {
         return RetrofitClient.hobbyInterface
+    }
+
+    @Provides
+    @Singleton
+    fun provideOrderService(): OrderInterface {
+        return RetrofitClient.orderInterface
     }
 }
