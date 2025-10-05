@@ -11,13 +11,13 @@ const orderController = new OrderController(orderService);
 router.post(
     '/quote',
     validateBody<QuoteRequest>(quoteSchema),
-    orderController.getQuote
+    (req, res, next) => orderController.getQuote(req, res, next)
 );
 
 router.post(
     '/',
     validateBody<CreateOrderRequest>(createOrderSchema),
-    orderController.createOrder
+    (req, res, next) => orderController.createOrder(req, res, next)
 );
 
 export default router;

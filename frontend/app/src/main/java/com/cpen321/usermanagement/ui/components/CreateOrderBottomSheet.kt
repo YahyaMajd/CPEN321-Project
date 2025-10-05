@@ -42,6 +42,7 @@ fun CreateOrderBottomSheet(
     // Step management
     var currentStep by remember { mutableStateOf(OrderCreationStep.ADDRESS_CAPTURE) }
     var studentAddress by remember { mutableStateOf<Address?>(null) }
+    var warehouseAddress by remember { mutableStateOf<Address?>(null) }
     var pricingRules by remember { mutableStateOf<PricingRules?>(null) }
     
     // Error handling
@@ -121,6 +122,7 @@ fun CreateOrderBottomSheet(
                                 val result = orderRepository.getQuote(address)
                                 result.fold(
                                     onSuccess = { quoteResponse ->
+                                        warehouseAddress = quoteResponse.warehouseAddress
                                         pricingRules = PricingRules(
                                             distanceServiceFee = quoteResponse.distancePrice
                                         )
@@ -242,7 +244,7 @@ private fun AddressCaptureStep(
                     try {
                         val coordinates = LocationUtils.geocodeAddress(context, fullAddress)
                             ?: LocationUtils.getFallbackCoordinates(fullAddress)
-                        
+
                         val address = Address(
                             lat = coordinates.latitude,
                             lon = coordinates.longitude,

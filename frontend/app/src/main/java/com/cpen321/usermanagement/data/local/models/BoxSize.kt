@@ -17,6 +17,16 @@ data class OrderRequest(
     val returnDate: String
 )
 
+data class CreateOrderRequest(
+    val studentId: String,
+    val volume: Double,
+    val totalPrice: Double,
+    val studentAddress: Address,
+    val warehouseAddress: Address,
+    val pickupTime: String, // ISO string format
+    val returnTime: String  // ISO string format
+)
+
 val STANDARD_BOX_SIZES = listOf(
     BoxSize(
         type = "Small",
