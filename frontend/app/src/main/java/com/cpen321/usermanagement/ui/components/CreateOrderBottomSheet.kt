@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cpen321.usermanagement.data.local.models.*
 import com.cpen321.usermanagement.business.DynamicPriceCalculator
+import com.cpen321.usermanagement.data.repository.OrderRepository
 import com.cpen321.usermanagement.utils.LocationUtils
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -35,6 +36,7 @@ import java.util.*
 fun CreateOrderBottomSheet(
     onDismiss: () -> Unit,
     onSubmitOrder: (OrderRequest) -> Unit,
+    orderRepository: OrderRepository,
     modifier: Modifier = Modifier
 ) {
     // Step management
@@ -67,7 +69,7 @@ fun CreateOrderBottomSheet(
                             }
                         }
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
                 Text(
@@ -113,18 +115,22 @@ fun CreateOrderBottomSheet(
                         currentStep = OrderCreationStep.LOADING_QUOTE
                         errorMessage = null
                         
-                        // Simulate API call to get quote
+                        // Real API call to get quote
                         coroutineScope.launch {
                             try {
-                                // TODO: Replace with real API call
-                                kotlinx.coroutines.delay(2000) // Simulate network delay
-                                
-                                // Mock API response
-                                val mockDistancePrice = 3.50
-                                pricingRules = PricingRules(
-                                    distanceServiceFee = mockDistancePrice
+                                val result = orderRepository.getQuote(address)
+                                result.fold(
+                                    onSuccess = { quoteResponse ->
+                                        pricingRules = PricingRules(
+                                            distanceServiceFee = quoteResponse.distancePrice
+                                        )
+                                        currentStep = OrderCreationStep.BOX_SELECTION
+                                    },
+                                    onFailure = { exception ->
+                                        errorMessage = "Failed to get pricing: ${exception.message}"
+                                        currentStep = OrderCreationStep.ADDRESS_CAPTURE
+                                    }
                                 )
-                                currentStep = OrderCreationStep.BOX_SELECTION
                             } catch (e: Exception) {
                                 errorMessage = "Failed to get pricing. Please try again."
                                 currentStep = OrderCreationStep.ADDRESS_CAPTURE

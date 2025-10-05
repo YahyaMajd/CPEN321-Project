@@ -115,6 +115,7 @@ private fun MainContent(
         ) {
             CreateOrderBottomSheet(
                 onDismiss = { showCreateOrderSheet = false },
+                orderRepository = orderViewModel.getRepository(),
                 onSubmitOrder = { orderRequest ->
                     // Handle order submission with repository
                     coroutineScope.launch {
