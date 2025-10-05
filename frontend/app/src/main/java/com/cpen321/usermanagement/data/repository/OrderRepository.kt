@@ -28,7 +28,9 @@ class OrderRepository @Inject constructor(
     private var lastQuoteResponse: GetQuoteResponse? = null
     private var lastStudentAddress: Address? = null
     
-    // For now - mock user ID, later get from auth
+    /**
+     * Helper to get current user ID
+     */
     private suspend fun getCurrentUserId(): String? {
         return authRepository.getCurrentUser()?._id
     }
