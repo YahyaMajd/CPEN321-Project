@@ -17,5 +17,6 @@ enum class JobStatus {
     AVAILABLE,
     ACCEPTED,
     IN_PROGRESS,
-    COMPLETED
+    COMPLETED,
+    CANCELLED
 }

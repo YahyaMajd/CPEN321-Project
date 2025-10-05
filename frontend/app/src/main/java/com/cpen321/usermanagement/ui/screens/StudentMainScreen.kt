@@ -118,7 +118,6 @@ private fun MainContent(
                 onSubmitOrder = { orderRequest ->
                     // Handle order submission with repository
                     coroutineScope.launch {
-                       // val result = orderRepository.submitOrder(orderRequest)
                         val result = orderViewModel.submitOrder(orderRequest)
                         result.onSuccess { order ->
                             println("Order submitted successfully: $order")

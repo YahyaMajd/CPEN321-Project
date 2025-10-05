@@ -137,12 +137,12 @@ private fun MainContent(
             when (currentScreen) {
                 MoverScreen.CURRENT_JOBS -> CurrentJobsScreen(
                     jobs = currentJobs,
-                    onJobClick = onJobDetails
+                    onJobDetails = onJobDetails
                 )
                 MoverScreen.AVAILABLE_JOBS -> AvailableJobsScreen(
                     jobs = availableJobs,
-                    onJobClick = onJobDetails,
-                    onAcceptJob = onJobAccept
+                    onJobDetails = onJobDetails,
+                    onJobAccept = onJobAccept
                 )
                 MoverScreen.SET_AVAILABILITY -> SetAvailabilityScreen()
             }
@@ -243,21 +243,5 @@ private fun MainBody(
             .padding(paddingValues),
         contentAlignment = Alignment.Center
     ) {
-        WelcomeMessage()
     }
-}
-
-@Composable
-private fun WelcomeMessage(
-    modifier: Modifier = Modifier
-) {
-    val fontSizes = LocalFontSizes.current
-
-    Text(
-        text = stringResource(R.string.welcome),
-        style = MaterialTheme.typography.bodyLarge,
-        fontSize = fontSizes.extraLarge3,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier
-    )
 }
