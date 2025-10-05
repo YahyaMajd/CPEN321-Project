@@ -13,7 +13,7 @@ import com.cpen321.usermanagement.ui.components.CurrentJobCard
 @Composable
 fun CurrentJobsScreen(
     jobs: List<Job>,
-    onJobClick: (Job) -> Unit,
+    onJobDetails: (Job) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -32,7 +32,7 @@ fun CurrentJobsScreen(
             items(jobs) { job ->
                 CurrentJobCard(
                     job = job,
-                    onDetailsClick = { onJobClick(job) }
+                    onDetailsClick = { onJobDetails(job) }
                 )
             }
         }

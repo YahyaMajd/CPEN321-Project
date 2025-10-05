@@ -9,16 +9,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.cpen321.usermanagement.data.local.models.Job
+import com.cpen321.usermanagement.data.local.models.MoverAvailability
 import com.cpen321.usermanagement.ui.components.AvailableJobCard
 
 @Composable
 fun AvailableJobsScreen(
     jobs: List<Job>,
-    onJobClick: (Job) -> Unit,
-    onAcceptJob: (Job) -> Unit,
+    moverAvailability: MoverAvailability? = null,
+    onJobAccept: (Job) -> Unit,
+    onJobDetails: (Job) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showAllJobs by remember { mutableStateOf(true) }
+    var showOnlyAvailable by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -41,12 +43,12 @@ fun AvailableJobsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = if (showAllJobs) "Show All" else "Within Availability",
+                    text = if (!showOnlyAvailable) "Show All" else "Within Availability",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Switch(
-                    checked = showAllJobs,
-                    onCheckedChange = { showAllJobs = it }
+                    checked = showOnlyAvailable,
+                    onCheckedChange = { showOnlyAvailable = it }
                 )
             }
         }
@@ -57,8 +59,8 @@ fun AvailableJobsScreen(
             items(jobs) { job ->
                 AvailableJobCard(
                     job = job,
-                    onDetailsClick = { onJobClick(job) },
-                    onAcceptClick = { onAcceptJob(job) }
+                    onAcceptClick = { onJobAccept(job) },
+                    onDetailsClick = { onJobDetails(job) }
                 )
             }
         }
