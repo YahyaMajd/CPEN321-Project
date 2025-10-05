@@ -10,7 +10,7 @@ export const addressSchema = z.object({
 
 // Order zod Schema
 // ------------------------------------------------------------
-export const getQuoteSchema = z.object({
+export const quoteSchema = z.object({
   studentId: z.string().refine(val => mongoose.isValidObjectId(val)),
   studentAddress: addressSchema,
 });
@@ -30,7 +30,7 @@ export const createOrderSchema = z.object({
 
 // Request types
 // ------------------------------------------------------------
-export type GetQuoteRequest = z.infer<typeof getQuoteSchema>;
+export type QuoteRequest = z.infer<typeof quoteSchema>;
 
 // ToDo: maybe we dont need to send the full address? the user dosnt need to see lat lon
 export type GetQuoteResponse = {

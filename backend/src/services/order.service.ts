@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { orderModel } from "../models/order.model";
 import {WAREHOUSES} from "../constants/warehouses"
-import { CreateOrderRequest, GetQuoteRequest, GetQuoteResponse, CreateOrderResponse, Order, OrderStatus } from "../types/order.types";
+import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CreateOrderResponse, Order, OrderStatus } from "../types/order.types";
 import logger from "../utils/logger.util";
 
 
@@ -18,7 +18,7 @@ export class OrderService {
          }
     }
 
-    private async getQuote(reqData: GetQuoteRequest): Promise<GetQuoteResponse> {
+    async getQuote(reqData: QuoteRequest): Promise<GetQuoteResponse> {
         try {
             const { studentAddress } = reqData;
             
@@ -37,7 +37,7 @@ export class OrderService {
         }
     }
 
-    private async createOrder(reqData: CreateOrderRequest): Promise<CreateOrderResponse> {
+    async createOrder(reqData: CreateOrderRequest): Promise<CreateOrderResponse> {
         try {
             // Extract required data
             const {
