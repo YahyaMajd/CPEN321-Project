@@ -23,8 +23,8 @@ export const createOrderSchema = z.object({
   totalPrice: z.number().positive(),
   studentAddress: addressSchema,
   warehouseAddress: addressSchema,
-  pickupTime: z.date(),
-  returnTime: z.date(),
+  pickupTime: z.string().datetime(),
+  returnTime: z.string().datetime(),
 });
 
 
@@ -65,6 +65,6 @@ export type Order = {
     studentAddress: Address;
     warehouseAddress: Address;  
     returnAddress?: Address;
-    pickupTime: Date;
-    returnTime: Date;
+    pickupTime: string; // ISO date string
+    returnTime: string;  // ISO date string
 };

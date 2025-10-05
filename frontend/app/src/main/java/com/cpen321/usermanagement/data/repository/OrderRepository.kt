@@ -117,6 +117,9 @@ class OrderRepository @Inject constructor(
      */
     suspend fun submitOrder(orderRequest: OrderRequest): Result<Order> {
         return try {
+            println("🚀 OrderRepository: Starting order submission")
+            println("📦 OrderRequest: $orderRequest")
+            
             // Verify we have required data from quote
             if (lastStudentAddress == null) {
                 return Result.failure(Exception("No student address from quote. Please get a new quote first."))
@@ -129,10 +132,14 @@ class OrderRepository @Inject constructor(
             val createOrderRequest = transformToCreateOrderRequest(orderRequest, lastStudentAddress, lastQuoteResponse?.warehouseAddress)
                 ?: return Result.failure(Exception("Failed to create order request. Please try again."))
             
+            println("🌐 CreateOrderRequest: $createOrderRequest")
             val response = orderApi.placeOrder(createOrderRequest)
+            println("📡 Response code: ${response.code()}")
+            println("📡 Response message: ${response.message()}")
             
             if (response.isSuccessful) {
                 response.body()?.let { order ->
+                    println("✅ Order created successfully: $order")
                     // Update active order
                     _activeOrder.value = order
                     
@@ -144,7 +151,10 @@ class OrderRepository @Inject constructor(
                     return Result.success(order)
                 } ?: return Result.failure(Exception("Empty response from server"))
             } else {
-                return Result.failure(Exception("Failed to place order: ${response.message()}"))
+                val errorBody = response.errorBody()?.string()
+                println("❌ Order creation failed: ${response.code()} - ${response.message()}")
+                println("❌ Error body: $errorBody")
+                return Result.failure(Exception("Failed to place order: ${response.message()} - $errorBody"))
             }
         } catch (e: Exception) {
             Result.failure(e)
