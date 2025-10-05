@@ -411,7 +411,8 @@ private fun BoxSelectionStep(
                 val orderRequest = OrderRequest(
                     boxQuantities = boxQuantities.filter { it.quantity > 0 },
                     currentAddress = studentAddress.formattedAddress,
-                    returnDate = returnDate
+                    returnDate = returnDate,
+                    totalPrice = currentPrice.total
                 )
                 onSubmitOrder(orderRequest)
             },

@@ -2,6 +2,7 @@ package com.cpen321.usermanagement.data.repository
 
 import com.cpen321.usermanagement.data.local.models.*
 import com.cpen321.usermanagement.data.remote.api.OrderInterface
+import com.cpen321.usermanagement.utils.LocationUtils
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,30 +52,17 @@ class OrderRepository @Inject constructor(
             }
         }
         
-        // Calculate total price (we'll need to get this from the quote response)
-        // For now, use a simple calculation
-        val totalPrice = orderRequest.boxQuantities.sumOf { boxQuantity ->
-            val unitPrice = when (boxQuantity.boxSize.type) {
-                "Small" -> 5.0
-                "Medium" -> 8.0
-                "Large" -> 12.0
-                else -> 8.0
-            }
-            boxQuantity.quantity * unitPrice
-        } + 10.0 // Add base service fee
+        // Use the price calculated by the UI (which uses backend pricing rules)
+        val totalPrice = orderRequest.totalPrice
         
-        // Use provided addresses or fallback to defaults
-        val studentAddress = studentAddr ?: Address(
-            lat = 49.2827,
-            lon = -123.1207,
-            formattedAddress = orderRequest.currentAddress
-        )
+        // Both addresses should come from the quote response
+        // Student address: from the geocoded address in quote request
+        // Warehouse address: from the quote response
+        val studentAddress = studentAddr 
+            ?: return null // Cannot create order without proper student address from quote
         
-        val warehouseAddress = warehouseAddr ?: Address(
-            lat = 49.2844,
-            lon = -123.1086,
-            formattedAddress = "123 Warehouse St, Vancouver, BC"
-        )
+        val warehouseAddress = warehouseAddr 
+            ?: return null // Cannot create order without warehouse address from backend quote
         
         // Format dates
         val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
@@ -129,9 +117,17 @@ class OrderRepository @Inject constructor(
      */
     suspend fun submitOrder(orderRequest: OrderRequest): Result<Order> {
         return try {
-            // Transform OrderRequest to CreateOrderRequest using stored addresses
+            // Verify we have required data from quote
+            if (lastStudentAddress == null) {
+                return Result.failure(Exception("No student address from quote. Please get a new quote first."))
+            }
+            if (lastQuoteResponse?.warehouseAddress == null) {
+                return Result.failure(Exception("No warehouse address from quote. Please get a new quote first."))
+            }
+            
+            // Transform OrderRequest to CreateOrderRequest using stored addresses from quote
             val createOrderRequest = transformToCreateOrderRequest(orderRequest, lastStudentAddress, lastQuoteResponse?.warehouseAddress)
-                ?: return Result.failure(Exception("Failed to transform order request"))
+                ?: return Result.failure(Exception("Failed to create order request. Please try again."))
             
             val response = orderApi.placeOrder(createOrderRequest)
             

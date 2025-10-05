@@ -14,7 +14,8 @@ data class BoxQuantity(
 data class OrderRequest(
     val boxQuantities: List<BoxQuantity>,
     val currentAddress: String,
-    val returnDate: String
+    val returnDate: String,
+    val totalPrice: Double // Price calculated by UI using backend pricing rules
 )
 
 data class CreateOrderRequest(
