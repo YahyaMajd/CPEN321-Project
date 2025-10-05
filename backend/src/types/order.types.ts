@@ -7,13 +7,6 @@ export const addressSchema = z.object({
   formattedAddress: z.string(),
 });
 
-export const orderStatusSchema = z.enum([
-  "PENDING",
-  "ACCEPTED",
-  "PICKED_UP",
-  "IN_STORAGE",
-  "CANCELLED",
-]);
 
 // Order zod Schema
 // ------------------------------------------------------------
@@ -39,6 +32,7 @@ export const createOrderSchema = z.object({
 // ------------------------------------------------------------
 export type GetQuoteRequest = z.infer<typeof getQuoteSchema>;
 
+// ToDo: maybe we dont need to send the full address? the user dosnt need to see lat lon
 export type GetQuoteResponse = {
   distancePrice: number,
   warehouseAddress: Address
@@ -48,13 +42,21 @@ export type CreateOrderRequest = z.infer<typeof createOrderSchema>;
 
 export type CreateOrderResponse = {
   success: boolean,
+  id?: mongoose.Types.ObjectId,
   message: string
 }
 
 // Generic type
 // ------------------------------------------------------------
 export type Address = z.infer<typeof addressSchema>;
-export type OrderStatus = z.infer<typeof orderStatusSchema>;
+
+export enum OrderStatus {
+  PENDING = "PENDING",
+  ACCEPTED = "ACCEPTED",
+  PICKED_UP = "PICKED_UP",
+  IN_STORAGE = "IN_STORAGE",
+  CANCELLED = "CANCELLED",
+}
 
 export type Order = {
     studentId: mongoose.Types.ObjectId;

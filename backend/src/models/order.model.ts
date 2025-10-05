@@ -1,7 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import { z } from "zod";
 
-import { createOrderSchema, Order } from "../types/order.types";
+import { createOrderSchema, Order, OrderStatus } from "../types/order.types";
 import logger from "../utils/logger.util";
 
 // Address subdocument schema to be used inside order schema
@@ -33,7 +33,6 @@ const orderSchema = new Schema(
     status: {
       type: String,
       required: true,
-      default: "PENDING",
     },
     volume: {
       type: Number,
