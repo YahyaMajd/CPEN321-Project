@@ -43,7 +43,6 @@ import com.cpen321.usermanagement.ui.components.StatusPanel
 import com.cpen321.usermanagement.ui.components.CreateOrderBottomSheet
 import com.cpen321.usermanagement.data.local.models.OrderRequest
 import com.cpen321.usermanagement.data.local.models.Order
-//import com.cpen321.usermanagement.data.repository.OrderRepository
 import com.cpen321.usermanagement.ui.viewmodels.OrderViewModel
 import com.cpen321.usermanagement.data.repository.PaymentRepository
 import com.cpen321.usermanagement.data.remote.api.RetrofitClient
@@ -59,19 +58,16 @@ import androidx.collection.orderedScatterSetOf
 fun StudentMainScreen(
     mainViewModel: MainViewModel,
     orderViewModel: OrderViewModel,
-    //orderRepository: OrderRepository = remember { OrderRepository() }, // Create repository instance
     onProfileClick: () -> Unit
 ) {
     val uiState by mainViewModel.uiState.collectAsState()
     val activeOrder by orderViewModel.activeOrder.collectAsState() // Watch active order
-    //val activeOrder by orderRepository.activeOrder.collectAsState() // Watch active order
     val snackBarHostState = remember { SnackbarHostState() }
 
     MainContent(
         uiState = uiState,
         activeOrder = activeOrder,
         orderViewModel = orderViewModel,
-        //orderRepository = orderRepository,
         snackBarHostState = snackBarHostState,
         onProfileClick = onProfileClick,
         onSuccessMessageShown = mainViewModel::clearSuccessMessage
@@ -84,7 +80,6 @@ private fun MainContent(
     uiState: MainUiState,
     activeOrder: Order?,
     orderViewModel: OrderViewModel,
-    //orderRepository: OrderRepository,
     snackBarHostState: SnackbarHostState,
     onProfileClick: () -> Unit,
     onSuccessMessageShown: () -> Unit,

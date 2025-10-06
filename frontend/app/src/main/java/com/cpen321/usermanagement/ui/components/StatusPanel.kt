@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
@@ -29,6 +30,8 @@ import com.cpen321.usermanagement.data.local.models.Order
 import com.cpen321.usermanagement.data.local.models.OrderStatus
 import com.cpen321.usermanagement.data.local.models.displayText
 import com.cpen321.usermanagement.data.local.models.Address
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun StatusPanel(
@@ -74,7 +77,7 @@ private fun ActiveOrderStatusContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Order Status",
+                    text = "Order Status and Details",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -95,6 +98,8 @@ private fun ActiveOrderStatusContent(
                 OrderStatus.PICKED_UP -> 0.7f
                 OrderStatus.IN_STORAGE -> 1.0f
                 OrderStatus.CANCELLED -> 0.0f
+                OrderStatus.RETURNED -> 0.2f
+                OrderStatus.COMPLETED -> 0.2f
             }
             LinearProgressIndicator(
                 progress = { progress },
@@ -117,27 +122,41 @@ private fun ActiveOrderStatusContent(
             
             // Volume info
             StatusDetailRow(
-                icon = Icons.Default.Person,
+                icon = Icons.Default.Info,
                 label = "Volume",
                 value = "${order.volume} cubic units"
             )
             
             // Price info
             StatusDetailRow(
-                icon = Icons.Default.Person,
+                icon = Icons.Default.Info,
                 label = "Total Price",
                 value = "$${String.format("%.2f", order.price)}"
             )
-            
-            // Pickup Time Section
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Pickup Time: ${order.pickupTime}",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary
+
+            StatusDetailRow(
+                icon = Icons.Default.Info,
+                label ="Pickup Date",
+                value = "${formatPickupTime(order.pickupTime)}"
+            )
+
+            StatusDetailRow(
+                icon = Icons.Default.Info,
+                label ="Return Date",
+                value = "${formatPickupTime(order.returnTime)}"
             )
         }
+    }
+}
+
+
+fun formatPickupTime(isoString: String): String {
+    return try {
+        val date = ZonedDateTime.parse(isoString)
+        val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm a")
+        date.format(formatter)
+    } catch (e: Exception) {
+        isoString // fallback to raw string if parsing fails
     }
 }
 
