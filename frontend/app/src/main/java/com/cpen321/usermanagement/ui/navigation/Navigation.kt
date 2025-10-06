@@ -41,6 +41,8 @@ object NavRoutes {
     const val ROLE_SELECTION = "role_selection"
     const val MANAGE_PROFILE = "manage_profile"
     const val MANAGE_HOBBIES = "manage_hobbies"
+
+    const val MANAGE_ORDERS = "manage_orders"
     const val PROFILE_COMPLETION = "profile_completion"
 }
 
@@ -137,6 +139,11 @@ private fun handleNavigationEvent(
 
         is NavigationEvent.NavigateToManageHobbies -> {
             navController.navigate(NavRoutes.MANAGE_HOBBIES)
+            navigationStateManager.clearNavigationEvent()
+        }
+
+        is NavigationEvent.NavigateToManageOrders -> {
+            navController.navigate(NavRoutes.MANAGE_ORDERS)
             navigationStateManager.clearNavigationEvent()
         }
 
@@ -240,6 +247,7 @@ private fun AppNavHost(
                     onBackClick = { navigationStateManager.navigateBack() },
                     onManageProfileClick = { navigationStateManager.navigateToManageProfile() },
                     onManageHobbiesClick = { navigationStateManager.navigateToManageHobbies() },
+                    onManageOrdersClick = {navigationStateManager.navigateToManageOrders()},
                     onAccountDeleted = { navigationStateManager.handleAccountDeletion() },
                     onSignOut = {navigationStateManager.handleSignOut()}
                 )
@@ -260,6 +268,11 @@ private fun AppNavHost(
             )
         }
 
+        composable (NavRoutes.MANAGE_ORDERS){
+            ManageOrdersScreen(
+
+            )
+        }
         composable(NavRoutes.ROLE_SELECTION) {
             RoleSelectionScreen(
                 onRoleSelected = { role: String ->
@@ -283,4 +296,9 @@ private fun AppNavHost(
             )
         }
     }
+}
+
+@Composable
+fun ManageOrdersScreen() {
+    TODO("Not yet implemented")
 }

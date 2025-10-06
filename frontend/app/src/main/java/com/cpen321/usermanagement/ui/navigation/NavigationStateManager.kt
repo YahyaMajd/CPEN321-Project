@@ -13,6 +13,8 @@ sealed class NavigationEvent {
     object NavigateToProfile : NavigationEvent()
     object NavigateToManageProfile : NavigationEvent()
     object NavigateToManageHobbies : NavigationEvent()
+
+    object NavigateToManageOrders : NavigationEvent()
     data class NavigateToAuthWithMessage(val message: String) : NavigationEvent()
     data class NavigateToMainWithMessage(val message: String) : NavigationEvent()
     object NavigateBack : NavigationEvent()
@@ -228,6 +230,16 @@ class NavigationStateManager @Inject constructor() {
         _navigationState.value =
             _navigationState.value.copy(currentRoute = NavRoutes.MANAGE_HOBBIES)
     }
+
+    /**
+     * Navigate to Manage Orders Screen
+     */
+    fun navigateToManageOrders(){
+        _navigationEvent.value = NavigationEvent.NavigateToManageOrders
+        _navigationState.value =
+            _navigationState.value.copy(currentRoute = NavRoutes.MANAGE_ORDERS)
+    }
+
 
     /**
      * Navigate back
