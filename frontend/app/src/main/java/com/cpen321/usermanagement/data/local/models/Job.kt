@@ -1,22 +1,33 @@
 package com.cpen321.usermanagement.data.local.models
 
-import java.time.LocalDate
-import java.time.LocalTime
+import com.cpen321.usermanagement.data.remote.dto.Address
+import java.time.LocalDateTime
 
 data class Job(
     val id: String,
+    val orderId: String? = null,
+    val studentId: String? = null,
+    val moverId: String? = null,
+    val jobType: JobType,
+    val status: JobStatus,
+    val volume: Double,
     val price: Double,
-    val date: LocalDate,
-    val startTime: LocalTime,
-    val pickupAddress: String,
-    val dropoffAddress: String,
-    val status: JobStatus = JobStatus.AVAILABLE
+    val pickupAddress: Address,
+    val dropoffAddress: Address,
+    val scheduledTime: LocalDateTime,
+    val createdAt: LocalDateTime? = null,
+    val updatedAt: LocalDateTime? = null
 )
 
-enum class JobStatus {
-    AVAILABLE,
-    ACCEPTED,
-    IN_PROGRESS,
-    COMPLETED,
-    CANCELLED
+enum class JobType(val value: String) {
+    STORAGE("STORAGE"),
+    RETURN("RETURN")
+}
+
+enum class JobStatus(val value: String) {
+    AVAILABLE("AVAILABLE"),
+    ASSIGNED("ASSIGNED"),
+    IN_PROGRESS("IN_PROGRESS"),
+    COMPLETED("COMPLETED"),
+    CANCELLED("CANCELLED")
 }

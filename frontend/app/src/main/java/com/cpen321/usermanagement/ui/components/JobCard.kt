@@ -30,18 +30,22 @@ fun CurrentJobCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = job.id,
+                    text = "${job.jobType.value} Job",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = job.startTime.format(DateTimeFormatter.ofPattern("HH:mm")),
+                    text = job.scheduledTime.format(DateTimeFormatter.ofPattern("HH:mm")),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = job.date.format(DateTimeFormatter.ISO_DATE),
+                text = job.scheduledTime.format(DateTimeFormatter.ISO_LOCAL_DATE),
                 style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = "Status: ${job.status.value}",
+                style = MaterialTheme.typography.bodySmall
             )
         }
     }
@@ -67,7 +71,7 @@ fun AvailableJobCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = job.id,
+                    text = "${job.jobType.value} Job",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
@@ -77,15 +81,19 @@ fun AvailableJobCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Pickup: ${job.pickupAddress}",
+                text = "Pickup: ${job.pickupAddress.formattedAddress}",
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                text = "Drop-off: ${job.dropoffAddress}",
+                text = "Drop-off: ${job.dropoffAddress.formattedAddress}",
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                text = job.date.format(DateTimeFormatter.ISO_DATE),
+                text = "Volume: ${String.format("%.1f", job.volume)} m³",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = job.scheduledTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")),
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(modifier = Modifier.height(8.dp))

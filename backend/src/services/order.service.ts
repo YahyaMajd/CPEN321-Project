@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { orderModel } from "../models/order.model";
 import {WAREHOUSES} from "../constants/warehouses"
 import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CreateOrderResponse, Order, OrderStatus } from "../types/order.types";
+import { jobService } from "./job.service";
 import logger from "../utils/logger.util";
 
 
@@ -48,6 +49,7 @@ export class OrderService {
                 warehouseAddress,
                 pickupTime,
                 returnTime,
+                returnAddress,
             } = reqData;
 
             const studentObjectId = new mongoose.Types.ObjectId(studentId);
@@ -59,12 +61,27 @@ export class OrderService {
                 price: totalPrice,
                 studentAddress,
                 warehouseAddress,
-                returnAddress: undefined,
+                returnAddress: returnAddress || studentAddress, // Default to student address if not provided
                 pickupTime,
                 returnTime,
             };
 
             const createdOrder = await orderModel.create(newOrder);
+
+            // Create jobs for this order (storage and return)
+            const finalReturnAddress = returnAddress || studentAddress;
+            
+            await jobService.createJobsForOrder(
+                createdOrder._id.toString(),
+                reqData.studentId,
+                reqData.volume,
+                reqData.totalPrice,
+                reqData.studentAddress,
+                reqData.warehouseAddress,
+                finalReturnAddress,
+                reqData.pickupTime,
+                reqData.returnTime
+            );
 
             return {
                 id: createdOrder._id.toString(),

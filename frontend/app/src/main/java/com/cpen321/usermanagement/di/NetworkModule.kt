@@ -3,6 +3,7 @@ package com.cpen321.usermanagement.di
 import com.cpen321.usermanagement.data.remote.api.AuthInterface
 import com.cpen321.usermanagement.data.remote.api.HobbyInterface
 import com.cpen321.usermanagement.data.remote.api.ImageInterface
+import com.cpen321.usermanagement.data.remote.api.JobApiService
 import com.cpen321.usermanagement.data.remote.api.OrderInterface
 import com.cpen321.usermanagement.data.remote.api.RetrofitClient
 import com.cpen321.usermanagement.data.remote.api.UserInterface
@@ -44,5 +45,11 @@ object NetworkModule {
     @Singleton
     fun provideOrderService(): OrderInterface {
         return RetrofitClient.orderInterface
+    }
+
+    @Provides
+    @Singleton
+    fun provideJobService(): JobApiService {
+        return RetrofitClient.jobApiService
     }
 }
