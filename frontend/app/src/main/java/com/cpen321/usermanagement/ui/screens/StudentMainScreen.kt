@@ -42,8 +42,15 @@ import com.cpen321.usermanagement.ui.components.OrderPanel
 import com.cpen321.usermanagement.ui.components.StatusPanel
 import com.cpen321.usermanagement.ui.components.CreateOrderBottomSheet
 import com.cpen321.usermanagement.data.local.models.OrderRequest
+import com.cpen321.usermanagement.data.local.models.Order
 //import com.cpen321.usermanagement.data.repository.OrderRepository
 import com.cpen321.usermanagement.ui.viewmodels.OrderViewModel
+import com.cpen321.usermanagement.data.repository.PaymentRepository
+import com.cpen321.usermanagement.data.remote.api.RetrofitClient
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.collection.orderedScatterSetOf
@@ -75,7 +82,7 @@ fun StudentMainScreen(
 @Composable
 private fun MainContent(
     uiState: MainUiState,
-    activeOrder: com.cpen321.usermanagement.data.local.models.Order?,
+    activeOrder: Order?,
     orderViewModel: OrderViewModel,
     //orderRepository: OrderRepository,
     snackBarHostState: SnackbarHostState,
@@ -116,6 +123,7 @@ private fun MainContent(
             CreateOrderBottomSheet(
                 onDismiss = { showCreateOrderSheet = false },
                 orderRepository = orderViewModel.getRepository(),
+                paymentRepository = PaymentRepository(RetrofitClient.paymentInterface),
                 onSubmitOrder = { orderRequest ->
                     // Handle order submission with repository
                     coroutineScope.launch {

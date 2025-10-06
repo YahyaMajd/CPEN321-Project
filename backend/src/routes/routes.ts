@@ -6,6 +6,7 @@ import hobbiesRoutes from './hobby.routes';
 import mediaRoutes from './media.routes';
 import usersRoutes from './user.routes';
 import orderRoutes from './order.routes';
+import paymentRoutes from './payment.routes';
 
 const router = Router();
 
@@ -18,5 +19,7 @@ router.use('/user', authenticateToken, usersRoutes);
 router.use('/media', authenticateToken, mediaRoutes);
 
 router.use('/order', authenticateToken, orderRoutes);
+
+router.use('/payment', authenticateToken, paymentRoutes);
 
 export default router;

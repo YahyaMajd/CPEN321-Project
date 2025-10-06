@@ -19,6 +19,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.0",
     "multer": "^2.0.2",
+    "stripe": "^19.1.0",
     "zod": "^4.1.1"
   },
   "devDependencies": {
@@ -26,6 +27,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
     "@types/node": "^20.0.0",
+    "@types/stripe": "^8.0.416",
     "nodemon": "^3.0.0",
     "prettier": "^3.6.2",
     "ts-node": "^10.9.0",

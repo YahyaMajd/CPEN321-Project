@@ -66,5 +66,8 @@ data class BoxLineItem(
 enum class OrderCreationStep {
     ADDRESS_CAPTURE,
     LOADING_QUOTE,
-    BOX_SELECTION
+    BOX_SELECTION,
+    PAYMENT_DETAILS,
+    PROCESSING_PAYMENT,
+    ORDER_CONFIRMATION
 }
