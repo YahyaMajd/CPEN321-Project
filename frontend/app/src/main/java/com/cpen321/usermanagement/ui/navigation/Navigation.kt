@@ -16,6 +16,7 @@ import com.cpen321.usermanagement.ui.screens.AuthScreen
 import com.cpen321.usermanagement.ui.screens.LoadingScreen
 import com.cpen321.usermanagement.ui.screens.MainScreen
 import com.cpen321.usermanagement.ui.screens.ManageHobbiesScreen
+import com.cpen321.usermanagement.ui.screens.ManageOrdersScreen
 import com.cpen321.usermanagement.ui.screens.ManageProfileScreen
 import com.cpen321.usermanagement.ui.screens.MoverMainScreen
 import com.cpen321.usermanagement.ui.screens.ProfileScreenActions
@@ -270,7 +271,9 @@ private fun AppNavHost(
 
         composable (NavRoutes.MANAGE_ORDERS){
             ManageOrdersScreen(
-
+                profileViewModel = profileViewModel,
+                orderViewModel = orderViewModel,
+                onBackClick = { navigationStateManager.navigateBack()}
             )
         }
         composable(NavRoutes.ROLE_SELECTION) {
@@ -296,9 +299,4 @@ private fun AppNavHost(
             )
         }
     }
-}
-
-@Composable
-fun ManageOrdersScreen() {
-    TODO("Not yet implemented")
 }

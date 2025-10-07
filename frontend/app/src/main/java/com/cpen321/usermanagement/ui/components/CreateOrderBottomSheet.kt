@@ -22,7 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cpen321.usermanagement.data.local.models.*
 import com.cpen321.usermanagement.business.DynamicPriceCalculator
-import com.cpen321.usermanagement.data.repository.OrderRepository
+import com.cpen321.usermanagement.ui.viewmodels.OrderViewModel
 import com.cpen321.usermanagement.data.repository.PaymentRepository
 import com.cpen321.usermanagement.utils.LocationUtils
 import kotlinx.coroutines.launch
@@ -34,7 +34,7 @@ import java.util.*
 fun CreateOrderBottomSheet(
     onDismiss: () -> Unit,
     onSubmitOrder: (OrderRequest) -> Unit,
-    orderRepository: OrderRepository,
+    orderViewModel: OrderViewModel,
     paymentRepository: PaymentRepository,
     modifier: Modifier = Modifier
 ) {
@@ -128,7 +128,7 @@ fun CreateOrderBottomSheet(
                         // Real API call to get quote
                         coroutineScope.launch {
                             try {
-                                val result = orderRepository.getQuote(address)
+                                val result = orderViewModel.getQuote(address)
                                 result.fold(
                                     onSuccess = { quoteResponse ->
                                         warehouseAddress = quoteResponse.warehouseAddress
@@ -137,7 +137,7 @@ fun CreateOrderBottomSheet(
                                         )
                                         currentStep = OrderCreationStep.BOX_SELECTION
                                     },
-                                    onFailure = { exception ->
+                                    onFailure = { exception: Throwable ->
                                         errorMessage = "Failed to get pricing: ${exception.message}"
                                         currentStep = OrderCreationStep.ADDRESS_CAPTURE
                                     }

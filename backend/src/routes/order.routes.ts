@@ -20,4 +20,21 @@ router.post(
     (req, res, next) => orderController.createOrder(req, res, next)
 );
 
+router.get(
+    '/all-orders',    // No need for studentId in URL since we get it from auth
+    (req, res, next) => orderController.getAllOrders(req, res, next)
+);
+
+router.get(
+    '/active-order',  // No need for studentId in URL since we get it from auth
+    (req, res, next) => orderController.getActiveOrder(req, res, next)
+);
+
+// IMPLEMENTATION PENDING IN CONTROLLER AND SERVICE
+// router.put(
+//     '/:orderId/status',
+//     (req, res, next) => orderController.updateOrderStatus(req, res, next)
+// );
+
 export default router;
+

@@ -53,6 +53,8 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.collection.orderedScatterSetOf
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 
 @Composable
 fun StudentMainScreen(
@@ -61,8 +63,21 @@ fun StudentMainScreen(
     onProfileClick: () -> Unit
 ) {
     val uiState by mainViewModel.uiState.collectAsState()
-    val activeOrder by orderViewModel.activeOrder.collectAsState() // Watch active order
+   // val activeOrder by orderViewModel.activeOrder.collectAsState() // Watch active order
+    var activeOrder by remember { mutableStateOf(null as Order?) }
     val snackBarHostState = remember { SnackbarHostState() }
+
+    // Poll for active order
+    LaunchedEffect(Unit) {
+        while(true) {
+            println("Polling for active order...")
+            orderViewModel.getActiveOrder()?.let { order ->
+                activeOrder = order
+            }
+            println("Active order: $activeOrder")
+            delay(5000) // Poll every 5 seconds
+        }
+    }
 
     MainContent(
         uiState = uiState,
@@ -117,7 +132,7 @@ private fun MainContent(
         ) {
             CreateOrderBottomSheet(
                 onDismiss = { showCreateOrderSheet = false },
-                orderRepository = orderViewModel.getRepository(),
+                orderViewModel = orderViewModel,
                 paymentRepository = PaymentRepository(RetrofitClient.paymentInterface),
                 onSubmitOrder = { orderRequest ->
                     // Handle order submission with repository

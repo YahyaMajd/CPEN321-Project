@@ -11,23 +11,6 @@ data class BoxQuantity(
     val quantity: Int = 0
 )
 
-data class OrderRequest(
-    val boxQuantities: List<BoxQuantity>,
-    val currentAddress: String,
-    val returnDate: String,
-    val totalPrice: Double // Price calculated by UI using backend pricing rules
-)
-
-data class CreateOrderRequest(
-    val studentId: String,
-    val volume: Double,
-    val totalPrice: Double,
-    val studentAddress: Address,
-    val warehouseAddress: Address,
-    val pickupTime: String, // ISO string format
-    val returnTime: String  // ISO string format
-)
-
 val STANDARD_BOX_SIZES = listOf(
     BoxSize(
         type = "Small",

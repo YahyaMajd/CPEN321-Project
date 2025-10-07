@@ -1,7 +1,7 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { ObjectId, Schema } from "mongoose";
 import { z } from "zod";
 
-import { createOrderSchema, Order, OrderStatus } from "../types/order.types";
+import { ACTIVE_ORDER_STATUSES, createOrderSchema, Order, OrderStatus } from "../types/order.types";
 import logger from "../utils/logger.util";
 
 // Address subdocument schema to be used inside order schema
@@ -73,12 +73,34 @@ export class OrderModel {
     }
   }
 
+  async getAllOrders(studentId: ObjectId | undefined) {
+    try {
+      return await this.order.find({ studentId });
+    } catch (error) {
+      logger.error("Error getting all orders:", error);
+      throw new Error("Failed to get all orders");
+    }
+  }
+
   async findById(orderId: mongoose.Types.ObjectId) {
     try {
       return await this.order.findById(orderId);
     } catch (error) {
       logger.error("Error finding order:", error);
       throw new Error("Failed to find order");
+    }
+  }
+
+  async findActiveOrder(filter: { studentId: ObjectId | undefined, status: { $in: OrderStatus[] } }): Promise<Order | null> {
+    try {
+        // Find the most recent non-terminal order for this student
+        return await this.order.findOne({
+            studentId: filter.studentId,
+            status: { $in: filter.status.$in }
+        }).sort({ createdAt: -1 });
+    } catch (error) {
+        logger.error("Error finding active order:", error);
+        throw new Error("Failed to find active order");
     }
   }
 
@@ -99,6 +121,8 @@ export class OrderModel {
       throw new Error("Failed to delete order");
     }
   }
+
+
 }
 
 export const orderModel = new OrderModel();

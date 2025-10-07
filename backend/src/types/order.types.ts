@@ -27,7 +27,6 @@ export const createOrderSchema = z.object({
   returnTime: z.string().datetime(),
 });
 
-
 // Request types
 // ------------------------------------------------------------
 export type QuoteRequest = z.infer<typeof quoteSchema>;
@@ -44,6 +43,15 @@ export type CreateOrderResponse = Order & {
   id: string;
 }
 
+export type GetActiveOrderResponse = Order | null;
+
+export type GetAllOrdersResponse = {
+    success: boolean;
+    orders: CreateOrderRequest[];
+    message: string;
+}
+
+
 // Generic type
 // ------------------------------------------------------------
 export type Address = z.infer<typeof addressSchema>;
@@ -55,6 +63,13 @@ export enum OrderStatus {
   IN_STORAGE = "IN_STORAGE",
   CANCELLED = "CANCELLED",
 }
+
+export const ACTIVE_ORDER_STATUSES = [
+  OrderStatus.PENDING,
+  OrderStatus.ACCEPTED,
+  OrderStatus.PICKED_UP,
+  OrderStatus.IN_STORAGE,
+];
 
 export type Order = {
     studentId: mongoose.Types.ObjectId;
