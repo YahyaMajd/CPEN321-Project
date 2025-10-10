@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.cpen321.usermanagement.data.remote.dto.AuthData
 import com.cpen321.usermanagement.data.remote.dto.User
 import com.cpen321.usermanagement.data.repository.AuthRepository
+import com.cpen321.usermanagement.network.SocketClient
 import com.cpen321.usermanagement.ui.navigation.NavRoutes
 import com.cpen321.usermanagement.ui.navigation.NavigationStateManager
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -38,7 +39,8 @@ data class AuthUiState(
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val navigationStateManager: NavigationStateManager
+    private val navigationStateManager: NavigationStateManager,
+    private val socketClient: SocketClient
 ) : ViewModel() {
 
     companion object {
@@ -78,6 +80,15 @@ class AuthViewModel @Inject constructor(
                     isLoading = false,
                     userRole = user?.userRole
                 )
+
+                // Connect to socket if authenticated
+                if (isAuthenticated) {
+                    // get stored token (suspend)
+                    val token = authRepository.getStoredToken()
+                    if (token != null){
+                        socketClient.connect("Bearer $token")
+                    }
+                }
             } catch (e: java.net.SocketTimeoutException) {
                 handleAuthError("Network timeout. Please check your connection.", e)
             } catch (e: java.net.UnknownHostException) {
@@ -154,6 +165,10 @@ class AuthViewModel @Inject constructor(
                         needsRoleSelection = needsRoleSelection,
                         userRole = authData.user.userRole
                     )
+
+                    // Connect to socket as client
+                    val token = authData.token
+                    socketClient.connect("Bearer $token")
                 }
                 .onFailure { error ->
                     val operationType = if (isSignUp) "sign up" else "sign in"
@@ -205,6 +220,7 @@ class AuthViewModel @Inject constructor(
     fun handleSignout(){
         viewModelScope.launch {
             authRepository.clearToken()
+            socketClient.disconnect()
             _uiState.value  = AuthUiState(
                 isAuthenticated = false,
                 isCheckingAuth = false,
@@ -222,6 +238,7 @@ class AuthViewModel @Inject constructor(
     fun handleAccountDeletion() {
         viewModelScope.launch {
             authRepository.clearToken()
+            socketClient.disconnect()
             _uiState.value = AuthUiState(
                 isAuthenticated = false,
                 isCheckingAuth = false,

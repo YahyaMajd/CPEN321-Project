@@ -61,12 +61,11 @@ fun ManageOrdersScreen(
     // Load all orders on launch and refresh periodically
     // Also refresh when refreshTrigger changes (after cancellation)
     LaunchedEffect(refreshTrigger) {
-        while(true) {
-            orderViewModel.getAllOrders()?.let { fetchedOrders ->
+        //TODO: replace with socket logic
+        orderViewModel.getAllOrders()?.let { fetchedOrders ->
                 orders = fetchedOrders
             }
-            delay(5000) // Refresh every 5 seconds
-        }
+
     }
 
     ManageOrdersContent(

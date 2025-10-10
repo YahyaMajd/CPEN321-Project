@@ -15,6 +15,7 @@ import {
     GetMoverJobsResponse
 } from "../types/job.type";
 import { Address, OrderStatus } from "../types/order.types";
+import { getIo } from "../socket";
 import logger from "../utils/logger.util";
 
 export class JobService {
@@ -243,6 +244,9 @@ export class JobService {
                     logger.error(`Failed to update order status to ACCEPTED for orderId=${rawOrderId}:`, err);
                     throw err;
                 }
+
+                //TODO : Emit to job.updated in socket for simple updates
+                
             } else {
                 // For non-ACCEPTED statuses, perform a simple update
                 updatedJob = await jobModel.update(
@@ -255,6 +259,9 @@ export class JobService {
                 if (!updatedJob) {
                     throw new Error("Job not found");
                 }
+
+                //TODO: Emit to job.updated in socket for simple updates
+                
             }
 
             // If job is completed, update order status

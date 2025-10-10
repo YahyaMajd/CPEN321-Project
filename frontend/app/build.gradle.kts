@@ -83,6 +83,14 @@ dependencies {
     implementation(libs.converter.gson)
     implementation(libs.logging.interceptor)
     
+    // Socket.IO client
+    implementation("io.socket:socket.io-client:2.0.1") {
+        // Android has org.json; exclude only if you have conflicts
+        exclude(group = "org.json", module = "json")
+    }
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    
     // Image loading
     implementation(libs.coil.compose)
     

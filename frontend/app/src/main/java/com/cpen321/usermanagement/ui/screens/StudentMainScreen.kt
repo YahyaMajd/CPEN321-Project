@@ -55,6 +55,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.collection.orderedScatterSetOf
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun StudentMainScreen(
@@ -66,16 +71,22 @@ fun StudentMainScreen(
    // val activeOrder by orderViewModel.activeOrder.collectAsState() // Watch active order
     var activeOrder by remember { mutableStateOf(null as Order?) }
     val snackBarHostState = remember { SnackbarHostState() }
+    val appCtx = LocalContext.current.applicationContext
 
-    // Poll for active order
+    // Subscribe to socket order.created/order.updated events and refresh active order
+
     LaunchedEffect(Unit) {
-        while(true) {
-            println("Polling for active order...")
-            orderViewModel.getActiveOrder()?.let { order ->
-                activeOrder = order
+        // initial load
+        orderViewModel.getActiveOrder()?.let { activeOrder = it }
+        // obtain singleton SocketClient from Hilt via a top-level entry point
+        val entry = EntryPointAccessors.fromApplication(appCtx, SocketClientEntryPoint::class.java)
+        val socketClient = entry.socketClient()
+
+        // collect socket events and refresh active order when an order is created/updated
+        socketClient.events.collect { ev ->
+            if (ev.name == "order.created" || ev.name == "order.updated") {
+                orderViewModel.getActiveOrder()?.let { activeOrder = it }
             }
-            println("Active order: $activeOrder")
-            delay(5000) // Poll every 5 seconds
         }
     }
 
@@ -87,6 +98,12 @@ fun StudentMainScreen(
         onProfileClick = onProfileClick,
         onSuccessMessageShown = mainViewModel::clearSuccessMessage
     )
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface SocketClientEntryPoint {
+    fun socketClient(): com.cpen321.usermanagement.network.SocketClient
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -64,4 +64,35 @@ export const authenticateToken: RequestHandler = async (
 
     next(error);
   }
+
+
+}
+
+/* New helper used by socket.io auth
+*  Needed since socket.io doesn't use Express middleware directly 
+*/ 
+export const verifyTokenString = async (token?: string) => {
+  if (!token) throw new Error('No token provided');
+
+  const raw = typeof token === 'string' && token.startsWith('Bearer ')
+    ? token.split(' ')[1]
+    : token;
+
+  try {
+    const decoded = jwt.verify(raw!, process.env.JWT_SECRET!) as any;
+    if (!decoded?.id) throw new Error('Invalid token payload');
+
+    const user = await userModel.findById(decoded.id);
+    if (!user) throw new Error('User not found');
+
+    return user;
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) {
+      throw new Error('Token expired');
+    }
+    if (err instanceof jwt.JsonWebTokenError) {
+      throw new Error('Invalid token');
+    }
+    throw err;
+  }
 };

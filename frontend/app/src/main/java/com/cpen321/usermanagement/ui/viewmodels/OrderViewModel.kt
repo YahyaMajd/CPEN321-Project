@@ -97,5 +97,18 @@ class OrderViewModel @Inject constructor(
             }
         }
     }
+
+    // Optionally expose a public method to manually refresh
+    // fun refreshActiveOrder() {
+    //     if (isFetching.getAndSet(true)) return
+    //     viewModelScope.launch {
+    //         try {
+    //             val res = orderRepository.getActiveOrder()
+    //             res.onSuccess { activeOrder = it }
+    //         } finally {
+    //             isFetching.set(false)
+    //         }
+    //     }
+    // }
 }
 

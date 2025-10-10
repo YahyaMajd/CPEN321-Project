@@ -1,0 +1,44 @@
+// backend/src/socket.ts
+import { Server } from 'socket.io';
+import http from 'http';
+import jwt from 'jsonwebtoken';
+import logger from './utils/logger.util';
+import { verifyTokenString } from './middleware/auth.middleware'; // optional helper
+
+let io: Server | null = null;
+
+export function initSocket(server: http.Server) {
+  io = new Server(server, {
+    cors: { origin: '*' } // tighten in production
+  });
+
+  // middleware to check JWT sent in client auth: { token: 'Bearer <jwt>' } or query param
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token ?? socket.handshake.query?.token ?? socket.handshake.headers?.authorization;
+  verifyTokenString(token)
+    .then(user => { (socket as any).user = user; next(); })
+    .catch(err => {
+      logger.warn('Socket auth error:', err.message);
+      next(new Error('Authentication error')); // client receives connect_error
+    });
+});
+
+
+  io.on('connection', (socket) => {
+    const user = (socket as any).user;
+    logger.info(`Socket connected: ${socket.id} user=${user?.id}`);
+    // auto-join user room
+    if (user?.id) socket.join(`user:${user.id}`);
+
+    socket.on('disconnect', (reason) => {
+      logger.info(`Socket disconnected: ${socket.id} reason=${reason}`);
+    });
+  });
+
+  return io;
+}
+
+export function getIo(): Server {
+  if (!io) throw new Error('Socket.io not initialized');
+  return io;
+}

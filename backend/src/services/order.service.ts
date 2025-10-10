@@ -3,6 +3,7 @@ import { orderModel } from "../models/order.model";
 import {WAREHOUSES} from "../constants/warehouses"
 import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CancelOrderResponse, CreateOrderResponse, Order, OrderStatus, GetAllOrdersResponse, ACTIVE_ORDER_STATUSES } from "../types/order.types";
 import logger from "../utils/logger.util";
+import { getIo } from "../socket";
 import { jobService } from "./job.service";
 import { log } from "console";
 
@@ -108,6 +109,33 @@ export class OrderService {
                 reqData.pickupTime,
                 reqData.returnTime
                 );
+                // Emit order.created to the student and order room (do not block the response)
+                try {
+                    const io = getIo();
+                    const orderPayload = {
+                        event: 'order.created',
+                        order: {
+                            id: createdOrder._id.toString(),
+                            studentId: createdOrder.studentId.toString(),
+                            moverId: createdOrder.moverId?.toString(),
+                            status: createdOrder.status,
+                            volume: createdOrder.volume,
+                            price: createdOrder.price,
+                            studentAddress: createdOrder.studentAddress,
+                            warehouseAddress: createdOrder.warehouseAddress,
+                            returnAddress: createdOrder.returnAddress,
+                            pickupTime: createdOrder.pickupTime,
+                            returnTime: createdOrder.returnTime,
+                            createdAt: createdOrder.createdAt,
+                            updatedAt: createdOrder.updatedAt,
+                        },
+                        meta: { by: reqData.studentId, ts: new Date().toISOString() }
+                    };
+                    io.to(`user:${createdOrder.studentId.toString()}`).emit('order.created', orderPayload);
+                    io.to(`order:${createdOrder._id.toString()}`).emit('order.created', orderPayload);
+                } catch (err) {
+                    logger.warn('Failed to emit order.created event:', err);
+                }
                 return {
                     id: createdOrder._id.toString(),
                     studentId: createdOrder.studentId.toString(),
@@ -210,7 +238,35 @@ export class OrderService {
 
             // Update the order status to CANCELLED
             const orderId = (order as any)._id as mongoose.Types.ObjectId;
-            await orderModel.update(orderId, { status: OrderStatus.CANCELLED });
+            const updated = await orderModel.update(orderId, { status: OrderStatus.CANCELLED });
+
+            // Emit order.updated
+            try {
+                const io = getIo();
+                const orderPayload = {
+                    event: 'order.updated',
+                    order: {
+                        id: updated._id.toString(),
+                        studentId: updated.studentId.toString(),
+                        moverId: updated.moverId?.toString(),
+                        status: updated.status,
+                        volume: updated.volume,
+                        price: updated.price,
+                        studentAddress: updated.studentAddress,
+                        warehouseAddress: updated.warehouseAddress,
+                        returnAddress: updated.returnAddress,
+                        pickupTime: updated.pickupTime,
+                        returnTime: updated.returnTime,
+                        createdAt: updated.createdAt,
+                        updatedAt: updated.updatedAt,
+                    },
+                    meta: { by: studentId?.toString() ?? null, ts: new Date().toISOString() }
+                };
+                io.to(`user:${updated.studentId.toString()}`).emit('order.updated', orderPayload);
+                io.to(`order:${updated._id.toString()}`).emit('order.updated', orderPayload);
+            } catch (err) {
+                logger.warn('Failed to emit order.updated event:', err);
+            }
 
             return { success: true, message: "Order cancelled successfully" };
         } catch (error) {
