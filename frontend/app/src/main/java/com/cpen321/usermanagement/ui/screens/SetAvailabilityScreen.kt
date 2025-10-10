@@ -11,92 +11,131 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import java.time.DayOfWeek
 import java.time.LocalTime
-import java.time.format.DateTimeFormatter
-import com.cpen321.usermanagement.data.local.models.TimeSlot
-import com.cpen321.usermanagement.data.local.models.DayAvailability
-import com.cpen321.usermanagement.data.local.models.MoverAvailability
+import com.cpen321.usermanagement.ui.viewmodels.MoverAvailabilityViewModel
+import com.cpen321.usermanagement.utils.TimeUtils
 
 @Composable
 fun SetAvailabilityScreen(
     modifier: Modifier = Modifier,
-    onAvailabilitySet: (MoverAvailability) -> Unit = {}
+    viewModel: MoverAvailabilityViewModel = hiltViewModel()
 ) {
-    var selectedDays by remember { mutableStateOf(mapOf<DayOfWeek, List<TimeSlot>>()) }
+    val uiState by viewModel.uiState.collectAsState()
     var showTimePickerDialog by remember { mutableStateOf<DayOfWeek?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Set Availability",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+    // Clear messages when screen is first loaded
+    LaunchedEffect(Unit) {
+        viewModel.loadAvailability()
+        viewModel.clearSuccessMessage()
+        viewModel.clearError()
+    }
 
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    // Show snackbar for success/error messages and immediately clear them
+    LaunchedEffect(uiState.successMessage) {
+        uiState.successMessage?.let { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearSuccessMessage()
+        }
+    }
+
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearError()
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
         ) {
-            items(DayOfWeek.values()) { day ->
-                DayAvailabilityItem(
-                    day = day,
-                    timeSlots = selectedDays[day] ?: emptyList(),
-                    onAddTimeSlot = { showTimePickerDialog = day },
-                    onRemoveTimeSlot = { slot ->
-                        selectedDays = selectedDays.toMutableMap().apply {
-                            this[day] = (this[day] ?: emptyList()) - slot
-                            if (this[day]?.isEmpty() == true) {
-                                remove(day)
+            Text(
+                text = "Set Availability",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(DayOfWeek.values()) { day ->
+                        DayAvailabilityItem(
+                            day = day,
+                            timeSlots = uiState.availability[day] ?: emptyList(),
+                            onAddTimeSlot = { showTimePickerDialog = day },
+                            onRemoveTimeSlot = { slot ->
+                                viewModel.removeTimeSlot(day, slot)
                             }
-                        }
+                        )
                     }
-                )
+                }
+
+                if (showTimePickerDialog != null) {
+                    val day = showTimePickerDialog!!
+                    TimeSlotPickerDialog(
+                        onDismiss = { showTimePickerDialog = null },
+                        onConfirm = { startTime, endTime ->
+                            viewModel.addTimeSlot(day, startTime, endTime)
+                            showTimePickerDialog = null
+                        }
+                    )
+                }
+
+                Button(
+                    onClick = { viewModel.saveAvailability() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    enabled = !uiState.isSaving
+                ) {
+                    if (uiState.isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text("Save Availability")
+                    }
+                }
             }
         }
 
-        if (showTimePickerDialog != null) {
-            val day = showTimePickerDialog!!
-            TimeSlotPickerDialog(
-                onDismiss = { showTimePickerDialog = null },
-                onConfirm = { startTime, endTime ->
-                    val newSlot = TimeSlot(startTime, endTime)
-                    selectedDays = selectedDays.toMutableMap().apply {
-                        put(day, (get(day) ?: emptyList()) + newSlot)
-                    }
-                    showTimePickerDialog = null
-                }
-            )
-        }
-
-        Button(
-            onClick = {
-                val availability = MoverAvailability(
-                    moverId = "TODO", // Replace with actual mover ID
-                    availableDays = selectedDays.map { (day, slots) ->
-                        DayAvailability(day, slots)
-                    }
-                )
-                onAvailabilitySet(availability)
-            },
+        // Snackbar at the bottom
+        SnackbarHost(
+            hostState = snackbarHostState,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp)
-        ) {
-            Text("Save Availability")
-        }
+                .align(Alignment.BottomCenter)
+                .padding(16.dp)
+        )
     }
 }
 
 @Composable
 private fun DayAvailabilityItem(
     day: DayOfWeek,
-    timeSlots: List<TimeSlot>,
+    timeSlots: List<Pair<LocalTime, LocalTime>>,
     onAddTimeSlot: () -> Unit,
-    onRemoveTimeSlot: (TimeSlot) -> Unit,
+    onRemoveTimeSlot: (Pair<LocalTime, LocalTime>) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -131,7 +170,7 @@ private fun DayAvailabilityItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}",
+                        text = "${TimeUtils.formatTime24(slot.first)} - ${TimeUtils.formatTime24(slot.second)}",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     IconButton(
@@ -168,11 +207,11 @@ private fun TimeSlotPickerDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (endTime.isAfter(startTime)) {
+                    if (TimeUtils.isStartBeforeEnd(startTime, endTime)) {
                         onConfirm(startTime, endTime)
                     }
                 },
-                enabled = endTime.isAfter(startTime)
+                enabled = TimeUtils.isStartBeforeEnd(startTime, endTime)
             ) {
                 Text("Add")
             }
@@ -191,7 +230,7 @@ private fun TimePickerRow(
     time: LocalTime,
     onTimeChange: (LocalTime) -> Unit
 ) {
-    var textValue by remember(time) { mutableStateOf(formatTime(time)) }
+    var textValue by remember(time) { mutableStateOf(TimeUtils.formatTime24(time)) }
     var isError by remember { mutableStateOf(false) }
 
     Row(
@@ -204,29 +243,24 @@ private fun TimePickerRow(
             value = textValue,
             onValueChange = { input ->
                 textValue = input
-                try {
-                    if (input.matches(Regex("^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"))) {
-                        val parsedTime = LocalTime.parse(input, DateTimeFormatter.ofPattern("HH:mm"))
+                if (TimeUtils.isValidTimeFormat(input)) {
+                    TimeUtils.parseTime24(input)?.let { parsedTime ->
                         onTimeChange(parsedTime)
                         isError = false
-                    } else {
+                    } ?: run {
                         isError = true
                     }
-                } catch (e: Exception) {
-                    isError = true
+                } else {
+                    isError = input.isNotEmpty()
                 }
             },
-            modifier = Modifier.width(100.dp),
+            modifier = Modifier.width(120.dp),
             singleLine = true,
             isError = isError,
             placeholder = { Text("HH:mm") },
             supportingText = if (isError) {
-                { Text("Use HH:mm format") }
+                { Text("Use HH:mm format", style = MaterialTheme.typography.bodySmall) }
             } else null
         )
     }
-}
-
-private fun formatTime(time: LocalTime): String {
-    return time.format(DateTimeFormatter.ofPattern("HH:mm"))
 }

@@ -60,6 +60,26 @@ const userSchema = new Schema<IUser>(
           'Hobbies must be non-empty strings and must be in the available hobbies list',
       },
     },
+    // Mover-specific fields
+    availability: {
+      type: Map,
+      of: [[String]],
+      required: false,
+    },
+    capacity: {
+      type: Number,
+      required: false,
+    },
+    carType: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    plateNumber: {
+      type: String,
+      required: false,
+      trim: true,
+    },
   },
   {
     timestamps: true,

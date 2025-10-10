@@ -168,4 +168,31 @@ class ProfileRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    override suspend fun updateMoverAvailability(availability: Map<String, List<List<String>>>): Result<User> {
+        return try {
+            val updateRequest = UpdateProfileRequest(availability = availability)
+            val response = userInterface.updateProfile("", updateRequest)
+            if (response.isSuccessful && response.body()?.data != null) {
+                Result.success(response.body()!!.data!!.user)
+            } else {
+                val errorBodyString = response.errorBody()?.string()
+                val errorMessage = parseErrorMessage(errorBodyString, "Failed to update availability.")
+                Log.e(TAG, "Failed to update availability: $errorMessage")
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: java.net.SocketTimeoutException) {
+            Log.e(TAG, "Network timeout while updating availability", e)
+            Result.failure(e)
+        } catch (e: java.net.UnknownHostException) {
+            Log.e(TAG, "Network connection failed while updating availability", e)
+            Result.failure(e)
+        } catch (e: java.io.IOException) {
+            Log.e(TAG, "IO error while updating availability", e)
+            Result.failure(e)
+        } catch (e: retrofit2.HttpException) {
+            Log.e(TAG, "HTTP error while updating availability: ${e.code()}", e)
+            Result.failure(e)
+        }
+    }
 }

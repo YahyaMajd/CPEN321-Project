@@ -4,7 +4,12 @@ data class UpdateProfileRequest(
     val name: String? = null,
     val bio: String? = null,
     val hobbies: List<String>? = null,
-    val profilePicture: String? = null
+    val profilePicture: String? = null,
+    // Mover-specific fields
+    val availability: Map<String, List<List<String>>>? = null, // Changed from List<Int> to List<String> for "HH:mm" format
+    val capacity: Float? = null,
+    val carType: String? = null,
+    val plateNumber: String? = null
 )
 
 data class ProfileData(
@@ -20,7 +25,12 @@ data class User(
     val profilePicture: String,
     val hobbies: List<String> = emptyList(),
     val createdAt: String? = null,
-    val updatedAt: String? = null
+    val updatedAt: String? = null,
+    // Mover-specific fields
+    val availability: Map<String, List<List<String>>>? = null, // Changed from List<Int> to List<String> for "HH:mm" format
+    val capacity: Float? = null,
+    val carType: String? = null,
+    val plateNumber: String? = null
 )
 
 data class UploadImageData(
