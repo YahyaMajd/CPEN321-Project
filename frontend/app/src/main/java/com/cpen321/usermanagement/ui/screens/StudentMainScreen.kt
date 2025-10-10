@@ -42,29 +42,47 @@ import com.cpen321.usermanagement.ui.components.OrderPanel
 import com.cpen321.usermanagement.ui.components.StatusPanel
 import com.cpen321.usermanagement.ui.components.CreateOrderBottomSheet
 import com.cpen321.usermanagement.data.local.models.OrderRequest
-//import com.cpen321.usermanagement.data.repository.OrderRepository
+import com.cpen321.usermanagement.data.local.models.Order
 import com.cpen321.usermanagement.ui.viewmodels.OrderViewModel
+import com.cpen321.usermanagement.data.repository.PaymentRepository
+import com.cpen321.usermanagement.data.remote.api.RetrofitClient
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.collection.orderedScatterSetOf
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 
 @Composable
 fun StudentMainScreen(
     mainViewModel: MainViewModel,
     orderViewModel: OrderViewModel,
-    //orderRepository: OrderRepository = remember { OrderRepository() }, // Create repository instance
     onProfileClick: () -> Unit
 ) {
     val uiState by mainViewModel.uiState.collectAsState()
-    val activeOrder by orderViewModel.activeOrder.collectAsState() // Watch active order
-    //val activeOrder by orderRepository.activeOrder.collectAsState() // Watch active order
+   // val activeOrder by orderViewModel.activeOrder.collectAsState() // Watch active order
+    var activeOrder by remember { mutableStateOf(null as Order?) }
     val snackBarHostState = remember { SnackbarHostState() }
+
+    // Poll for active order
+    LaunchedEffect(Unit) {
+        while(true) {
+            println("Polling for active order...")
+            orderViewModel.getActiveOrder()?.let { order ->
+                activeOrder = order
+            }
+            println("Active order: $activeOrder")
+            delay(5000) // Poll every 5 seconds
+        }
+    }
 
     MainContent(
         uiState = uiState,
         activeOrder = activeOrder,
         orderViewModel = orderViewModel,
-        //orderRepository = orderRepository,
         snackBarHostState = snackBarHostState,
         onProfileClick = onProfileClick,
         onSuccessMessageShown = mainViewModel::clearSuccessMessage
@@ -75,9 +93,8 @@ fun StudentMainScreen(
 @Composable
 private fun MainContent(
     uiState: MainUiState,
-    activeOrder: com.cpen321.usermanagement.data.local.models.Order?,
+    activeOrder: Order?,
     orderViewModel: OrderViewModel,
-    //orderRepository: OrderRepository,
     snackBarHostState: SnackbarHostState,
     onProfileClick: () -> Unit,
     onSuccessMessageShown: () -> Unit,
@@ -115,7 +132,8 @@ private fun MainContent(
         ) {
             CreateOrderBottomSheet(
                 onDismiss = { showCreateOrderSheet = false },
-                orderRepository = orderViewModel.getRepository(),
+                orderViewModel = orderViewModel,
+                paymentRepository = PaymentRepository(RetrofitClient.paymentInterface),
                 onSubmitOrder = { orderRequest ->
                     // Handle order submission with repository
                     coroutineScope.launch {

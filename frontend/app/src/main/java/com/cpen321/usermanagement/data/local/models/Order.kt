@@ -7,7 +7,9 @@ enum class OrderStatus {
     ACCEPTED,
     PICKED_UP,
     IN_STORAGE,
-    CANCELLED
+    CANCELLED,
+    RETURNED,
+    COMPLETED
 }
 
 data class Order(
@@ -32,4 +34,6 @@ val OrderStatus.displayText: String
         OrderStatus.PICKED_UP -> "Picked Up"
         OrderStatus.IN_STORAGE -> "In Storage"
         OrderStatus.CANCELLED -> "Cancelled"
+        OrderStatus.RETURNED -> "Returned"
+        OrderStatus.COMPLETED -> "Completed"
     }

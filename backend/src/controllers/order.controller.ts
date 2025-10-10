@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 import { OrderService } from '../services/order.service';
-import { CreateOrderRequest, CreateOrderResponse, QuoteRequest, GetQuoteResponse } from '../types/order.types';
+import { CreateOrderRequest, CreateOrderResponse, QuoteRequest, GetQuoteResponse, GetAllOrdersResponse, Order } from '../types/order.types';
+import mongoose, { mongo, ObjectId } from "mongoose";
+import logger from '../utils/logger.util';
 
 export class OrderController {
     constructor(private orderService: OrderService) {}
@@ -23,4 +25,33 @@ export class OrderController {
             next(error);
         }
     }
+
+    async getAllOrders(req: Request, res: Response<GetAllOrdersResponse>, next: NextFunction) {
+        try {
+            const orders = await this.orderService.getAllOrders(req.user?._id as ObjectId | undefined);
+            res.status(200).json(orders);
+        } catch (error) {
+            // TODO: improve error handling
+            next(error);
+        }
+    }
+
+    async getActiveOrder(req: Request, res: Response<Order | null>, next: NextFunction) {
+        try {
+            // Get studentId from authenticated user
+            const studentId = req.user?._id;
+
+            const order = await this.orderService.getUserActiveOrder(studentId as ObjectId | undefined);
+            
+            if (!order) {
+                return res.status(404).json(null);
+            }
+
+            res.status(200).json(order);
+        } catch (error) {
+            logger.error("Error in getActiveOrder controller:", error);
+            next(error);
+        }
+    }
+
 }

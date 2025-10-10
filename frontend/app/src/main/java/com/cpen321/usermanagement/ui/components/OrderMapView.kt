@@ -72,7 +72,7 @@ fun OrderMapView(
                         modifier = Modifier.fillMaxSize(),
                         cameraPositionState = cameraPositionState,
                         uiSettings = MapUiSettings(
-                            zoomControlsEnabled = false,
+                            zoomControlsEnabled = true,
                             compassEnabled = false,
                             mapToolbarEnabled = false
                         )

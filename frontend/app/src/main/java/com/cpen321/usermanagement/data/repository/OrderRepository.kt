@@ -3,6 +3,7 @@ package com.cpen321.usermanagement.data.repository
 import com.cpen321.usermanagement.data.local.models.*
 import com.cpen321.usermanagement.data.remote.api.OrderInterface
 import com.cpen321.usermanagement.utils.LocationUtils
+import com.google.errorprone.annotations.FormatString
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,14 +18,7 @@ class OrderRepository @Inject constructor(
     private val orderApi: OrderInterface,
     private val authRepository: AuthRepository
 ) {
-    
-    // Local state management
-    private val _activeOrder = MutableStateFlow<Order?>(null)
-    val activeOrder: StateFlow<Order?> = _activeOrder.asStateFlow()
-    
-    private val _orderHistory = MutableStateFlow<List<Order>>(emptyList())
-    val orderHistory: StateFlow<List<Order>> = _orderHistory.asStateFlow()
-    
+
     // Store last quote response for order creation
     private var lastQuoteResponse: GetQuoteResponse? = null
     private var lastStudentAddress: Address? = null
@@ -120,42 +114,21 @@ class OrderRepository @Inject constructor(
             println("🚀 OrderRepository: Starting order submission")
             println("📦 OrderRequest: $orderRequest")
             
-            // Verify we have required data from quote
-            if (lastStudentAddress == null) {
-                return Result.failure(Exception("No student address from quote. Please get a new quote first."))
-            }
-            if (lastQuoteResponse?.warehouseAddress == null) {
-                return Result.failure(Exception("No warehouse address from quote. Please get a new quote first."))
-            }
-            
-            // Transform OrderRequest to CreateOrderRequest using stored addresses from quote
             val createOrderRequest = transformToCreateOrderRequest(orderRequest, lastStudentAddress, lastQuoteResponse?.warehouseAddress)
-                ?: return Result.failure(Exception("Failed to create order request. Please try again."))
+            ?: return Result.failure(Exception("Failed to create order request"))
             
             println("🌐 CreateOrderRequest: $createOrderRequest")
             val response = orderApi.placeOrder(createOrderRequest)
             println("📡 Response code: ${response.code()}")
             println("📡 Response message: ${response.message()}")
-            
             if (response.isSuccessful) {
-                response.body()?.let { order ->
-                    println("✅ Order created successfully: $order")
-                    // Update active order
-                    _activeOrder.value = order
-                    
-                    // Add to history
-                    val currentHistory = _orderHistory.value.toMutableList()
-                    currentHistory.add(0, order) // Add to beginning
-                    _orderHistory.value = currentHistory
-                    
-                    return Result.success(order)
-                } ?: return Result.failure(Exception("Empty response from server"))
+                response.body()?.let { 
+                    Result.success(it)
+                } ?: Result.failure(Exception("Empty response"))
             } else {
-                val errorBody = response.errorBody()?.string()
-                println("❌ Order creation failed: ${response.code()} - ${response.message()}")
-                println("❌ Error body: $errorBody")
-                return Result.failure(Exception("Failed to place order: ${response.message()} - $errorBody"))
+                Result.failure(Exception("Failed to place order: ${response.message()}"))
             }
+           
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -164,61 +137,114 @@ class OrderRepository @Inject constructor(
     /**
      * Get current active order
      */
-    fun getActiveOrder(): Order? = _activeOrder.value
-    
-    /**
-     * Update order status (for testing state transitions)
-     */
-    suspend fun updateOrderStatus(orderId: String, newStatus: OrderStatus) {
-        val currentOrder = _activeOrder.value
-        if (currentOrder?.id == orderId) {
-            val updatedOrder = currentOrder.copy(
-                status = newStatus
-            )
-            _activeOrder.value = updatedOrder
-            
-            // Update in history as well
-            val currentHistory = _orderHistory.value.toMutableList()
-            val index = currentHistory.indexOfFirst { it.id == orderId }
-            if (index != -1) {
-                currentHistory[index] = updatedOrder
-                _orderHistory.value = currentHistory
+    suspend fun getActiveOrder(): Order? {
+        return try {
+            val response = orderApi.getActiveOrder()
+            if (response.isSuccessful && response.body() != null) {
+                response.body()
+            } else {
+                null
             }
-        }
+        } catch (e: Exception) {
+                null
+            }
     }
-    
+
+    suspend fun getAllOrders(): List<Order>? {
+        val response = orderApi.getAllOrders()
+        if (response.isSuccessful) {
+            val orders = response.body()?.orders?.map{ dto ->
+                Order(
+                    studentId = dto.studentId,
+                    moverId = dto.moverId,
+                    status = OrderStatus.valueOf(dto.status),
+                    volume = dto.volume,
+                    price = dto.totalPrice,
+                    studentAddress = dto.studentAddress,
+                    warehouseAddress = dto.warehouseAddress,
+                    returnAddress = dto.returnAddress,
+                    pickupTime = dto.pickupTime,
+                    returnTime = dto.returnTime
+                )
+            }
+            return orders
+        } else {
+            println("❌ Failed to fetch orders: ${response.code()} - ${response.message()}")
+        }
+        return null
+    }
+
     /**
      * Complete order (move from active to history only)
      */
     suspend fun completeOrder(orderId: String) {
-        updateOrderStatus(orderId, OrderStatus.IN_STORAGE)
+       // updateOrderStatus(orderId, OrderStatus.IN_STORAGE)
         // Keep in active until user dismisses or starts new order
     }
-    
-    /**
-     * Clear active order (when starting new order or dismissing completed one)
-     */
-    suspend fun clearActiveOrder() {
-        _activeOrder.value = null
-    }
+
     
     /**
      * Get all orders
      */
-    fun getAllOrders(): List<Order> = _orderHistory.value
+
+
+        /**
+     * Update order status (for testing state transitions)
+     */
+    // suspend fun updateOrderStatus(orderId: String, newStatus: OrderStatus) {
+    //     val currentOrder = _activeOrder.value
+    //     if (currentOrder?.id == orderId) {
+    //         val updatedOrder = currentOrder.copy(
+    //             status = newStatus
+    //         )
+    //         _activeOrder.value = updatedOrder
+            
+    //         // Update in history as well
+    //         val currentHistory = _orderHistory.value.toMutableList()
+    //         val index = currentHistory.indexOfFirst { it.id == orderId }
+    //         if (index != -1) {
+    //             currentHistory[index] = updatedOrder
+    //             _orderHistory.value = currentHistory
+    //         }
+    //     }
+    // }
+
+     /**
+     * Update order status (for testing state transitions)
+     */
+    // suspend fun updateOrderStatus(orderId: String, newStatus: OrderStatus): Result<Order> {
+    //     return try {
+    //         val response = orderApi.updateOrderStatus(orderId, newStatus)
+    //         if (response.isSuccessful) {
+    //             Result.success(response.body()!!)
+    //         } else {
+    //             Result.failure(Exception("Failed to update order status: ${response.message()}"))
+    //         }
+    //     } catch (e: Exception) {
+    //         Result.failure(e)
+    //     }
+    // }
     
+
+    /**
+     * Clear active order (when starting new order or dismissing completed one)
+     */
+    // suspend fun clearActiveOrder() {
+    //     _activeOrder.value = null
+    // }
+
     /**
      * Mock method to simulate order progression (for testing)
      */
-    suspend fun simulateOrderProgress(orderId: String) {
-        val currentOrder = _activeOrder.value ?: return
-        if (currentOrder.id != orderId) return
-        
-        when (currentOrder.status) {
-            OrderStatus.PENDING -> updateOrderStatus(orderId, OrderStatus.ACCEPTED)
-            OrderStatus.ACCEPTED -> updateOrderStatus(orderId, OrderStatus.PICKED_UP)
-            OrderStatus.PICKED_UP -> updateOrderStatus(orderId, OrderStatus.IN_STORAGE)
-            else -> { /* No change */ }
-        }
-    }
+    // suspend fun simulateOrderProgress(orderId: String) {
+    //     val currentOrder = _activeOrder.value ?: return
+    //     if (currentOrder.id != orderId) return
+
+    //     when (currentOrder.status) {
+    //         OrderStatus.PENDING -> updateOrderStatus(orderId, OrderStatus.ACCEPTED)
+    //         OrderStatus.ACCEPTED -> updateOrderStatus(orderId, OrderStatus.PICKED_UP)
+    //         OrderStatus.PICKED_UP -> updateOrderStatus(orderId, OrderStatus.IN_STORAGE)
+    //         else -> { /* No change */ }
+    //     }
+    // }
 }

@@ -8,12 +8,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +22,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cpen321.usermanagement.data.local.models.*
 import com.cpen321.usermanagement.business.DynamicPriceCalculator
-import com.cpen321.usermanagement.data.repository.OrderRepository
+import com.cpen321.usermanagement.ui.viewmodels.OrderViewModel
+import com.cpen321.usermanagement.data.repository.PaymentRepository
 import com.cpen321.usermanagement.utils.LocationUtils
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -36,7 +34,8 @@ import java.util.*
 fun CreateOrderBottomSheet(
     onDismiss: () -> Unit,
     onSubmitOrder: (OrderRequest) -> Unit,
-    orderRepository: OrderRepository,
+    orderViewModel: OrderViewModel,
+    paymentRepository: PaymentRepository,
     modifier: Modifier = Modifier
 ) {
     // Step management
@@ -44,6 +43,11 @@ fun CreateOrderBottomSheet(
     var studentAddress by remember { mutableStateOf<Address?>(null) }
     var warehouseAddress by remember { mutableStateOf<Address?>(null) }
     var pricingRules by remember { mutableStateOf<PricingRules?>(null) }
+    
+    // Order and payment data
+    var orderRequest by remember { mutableStateOf<OrderRequest?>(null) }
+    var paymentIntentResponse by remember { mutableStateOf<CreatePaymentIntentResponse?>(null) }
+    var paymentDetails by remember { mutableStateOf(PaymentDetails()) }
     
     // Error handling
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -66,6 +70,8 @@ fun CreateOrderBottomSheet(
                         onClick = { 
                             currentStep = when(currentStep) {
                                 OrderCreationStep.BOX_SELECTION -> OrderCreationStep.ADDRESS_CAPTURE
+                                OrderCreationStep.PAYMENT_DETAILS -> OrderCreationStep.BOX_SELECTION
+                                OrderCreationStep.PROCESSING_PAYMENT -> OrderCreationStep.PAYMENT_DETAILS
                                 else -> OrderCreationStep.ADDRESS_CAPTURE
                             }
                         }
@@ -78,6 +84,9 @@ fun CreateOrderBottomSheet(
                         OrderCreationStep.ADDRESS_CAPTURE -> "Enter Address"
                         OrderCreationStep.LOADING_QUOTE -> "Getting Quote"
                         OrderCreationStep.BOX_SELECTION -> "Select Boxes"
+                        OrderCreationStep.PAYMENT_DETAILS -> "Payment Details"
+                        OrderCreationStep.PROCESSING_PAYMENT -> "Processing Payment"
+                        OrderCreationStep.ORDER_CONFIRMATION -> "Order Confirmed"
                     },
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
@@ -119,7 +128,7 @@ fun CreateOrderBottomSheet(
                         // Real API call to get quote
                         coroutineScope.launch {
                             try {
-                                val result = orderRepository.getQuote(address)
+                                val result = orderViewModel.getQuote(address)
                                 result.fold(
                                     onSuccess = { quoteResponse ->
                                         warehouseAddress = quoteResponse.warehouseAddress
@@ -128,7 +137,7 @@ fun CreateOrderBottomSheet(
                                         )
                                         currentStep = OrderCreationStep.BOX_SELECTION
                                     },
-                                    onFailure = { exception ->
+                                    onFailure = { exception: Throwable ->
                                         errorMessage = "Failed to get pricing: ${exception.message}"
                                         currentStep = OrderCreationStep.ADDRESS_CAPTURE
                                     }
@@ -154,7 +163,100 @@ fun CreateOrderBottomSheet(
                     BoxSelectionStep(
                         pricingRules = rules,
                         studentAddress = studentAddress!!,
-                        onSubmitOrder = onSubmitOrder
+                        onProceedToPayment = { order ->
+                            orderRequest = order
+                            currentStep = OrderCreationStep.PAYMENT_DETAILS
+                            errorMessage = null
+                        }
+                    )
+                }
+            }
+            
+            OrderCreationStep.PAYMENT_DETAILS -> {
+                orderRequest?.let { order ->
+                    PaymentDetailsStep(
+                        orderRequest = order,
+                        paymentDetails = paymentDetails,
+                        onPaymentDetailsChange = { details ->
+                            paymentDetails = details
+                        },
+                        onProcessPayment = {
+                            currentStep = OrderCreationStep.PROCESSING_PAYMENT
+                            errorMessage = null
+                            
+                            // Create payment intent and process payment
+                            coroutineScope.launch {
+                                try {
+                                    // Step 1: Create payment intent
+                                    println("Creating payment intent for amount: ${order.totalPrice}")
+                                    val intentResult = paymentRepository.createPaymentIntent(order.totalPrice)
+                                    intentResult.fold(
+                                        onSuccess = { intent ->
+                                            println("Payment intent created successfully: ${intent.id}")
+                                            paymentIntentResponse = intent
+                                            
+                                            // Step 2: Process payment with customer info
+                                            val customerInfo = CustomerInfo(
+                                                name = paymentDetails.cardholderName,
+                                                email = paymentDetails.email,
+                                                address = PaymentAddress(
+                                                    line1 = order.currentAddress,
+                                                    city = "Vancouver", // Extract from address if needed
+                                                    state = "BC",
+                                                    postalCode = "V6T1Z4", // Extract from address if needed
+                                                    country = "CA"
+                                                )
+                                            )
+                                            
+                                            println("Processing payment with intent ID: ${intent.id}")
+                                            val paymentResult = paymentRepository.processPayment(
+                                                intent.id,
+                                                customerInfo,
+                                                TestPaymentMethods.VISA_SUCCESS // Use selected test card
+                                            )
+                                            
+                                            paymentResult.fold(
+                                                onSuccess = { payment ->
+                                                    if (payment.status == "SUCCEEDED") {
+                                                        // Submit order to backend
+                                                        onSubmitOrder(order)
+                                                        currentStep = OrderCreationStep.ORDER_CONFIRMATION
+                                                    } else {
+                                                        errorMessage = "Payment failed: ${payment.status}"
+                                                        currentStep = OrderCreationStep.PAYMENT_DETAILS
+                                                    }
+                                                },
+                                                onFailure = { exception ->
+                                                    errorMessage = "Payment processing failed: ${exception.message}"
+                                                    currentStep = OrderCreationStep.PAYMENT_DETAILS
+                                                }
+                                            )
+                                        },
+                                        onFailure = { exception ->
+                                            println("Failed to create payment intent: ${exception.message}")
+                                            errorMessage = "Failed to create payment: ${exception.message}"
+                                            currentStep = OrderCreationStep.PAYMENT_DETAILS
+                                        }
+                                    )
+                                } catch (e: Exception) {
+                                    errorMessage = "Payment failed. Please try again."
+                                    currentStep = OrderCreationStep.PAYMENT_DETAILS
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+            
+            OrderCreationStep.PROCESSING_PAYMENT -> {
+                ProcessingPaymentStep()
+            }
+            
+            OrderCreationStep.ORDER_CONFIRMATION -> {
+                orderRequest?.let { order ->
+                    OrderConfirmationStep(
+                        orderRequest = order,
+                        onClose = onDismiss
                     )
                 }
             }
@@ -313,7 +415,7 @@ private fun LoadingQuoteStep() {
 private fun BoxSelectionStep(
     pricingRules: PricingRules,
     studentAddress: Address,
-    onSubmitOrder: (OrderRequest) -> Unit
+    onProceedToPayment: (OrderRequest) -> Unit
 ) {
     var boxQuantities by remember {
         mutableStateOf(STANDARD_BOX_SIZES.map { BoxQuantity(it, 0) })
@@ -405,7 +507,7 @@ private fun BoxSelectionStep(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        // Submit Button
+        // Proceed to Payment Button
         Button(
             onClick = {
                 val orderRequest = OrderRequest(
@@ -414,12 +516,12 @@ private fun BoxSelectionStep(
                     returnDate = returnDate,
                     totalPrice = currentPrice.total
                 )
-                onSubmitOrder(orderRequest)
+                onProceedToPayment(orderRequest)
             },
             enabled = canSubmit,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Create Order - $${String.format("%.2f", currentPrice.total)}")
+            Text("Proceed to Payment - $${String.format("%.2f", currentPrice.total)}")
         }
     }
     
@@ -614,5 +716,297 @@ private fun DatePickerDialog(
         }
     ) {
         DatePicker(state = datePickerState)
+    }
+}
+
+// Step 4: Payment Details
+@Composable
+private fun PaymentDetailsStep(
+    orderRequest: OrderRequest,
+    paymentDetails: PaymentDetails,
+    onPaymentDetailsChange: (PaymentDetails) -> Unit,
+    onProcessPayment: () -> Unit
+) {
+    var selectedTestCard by remember { mutableStateOf(TestPaymentMethods.TEST_CARDS[0]) }
+    var showCardSelector by remember { mutableStateOf(false) }
+    
+    Column {
+        // Order Summary
+        Text(
+            text = "Order Summary",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
+        OutlinedCard(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "Total: $${String.format("%.2f", orderRequest.totalPrice)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "${orderRequest.boxQuantities.sumOf { it.quantity }} boxes for ${orderRequest.returnDate}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Test Card Selection (Demo Mode)
+        Text(
+            text = "Payment Method (Demo)",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        OutlinedCard(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { showCardSelector = true }
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = selectedTestCard.description,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "**** **** **** ${selectedTestCard.number.takeLast(4)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Change card",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        
+        if (showCardSelector) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Card {
+                LazyColumn {
+                    items(TestPaymentMethods.TEST_CARDS) { testCard ->
+                        ListItem(
+                            headlineContent = { Text(testCard.description) },
+                            supportingContent = { Text("**** **** **** ${testCard.number.takeLast(4)}") },
+                            modifier = Modifier.clickable {
+                                selectedTestCard = testCard
+                                showCardSelector = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Customer Information
+        Text(
+            text = "Customer Information",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        OutlinedTextField(
+            value = paymentDetails.cardholderName,
+            onValueChange = { name ->
+                onPaymentDetailsChange(paymentDetails.copy(cardholderName = name))
+            },
+            label = { Text("Full Name") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        OutlinedTextField(
+            value = paymentDetails.email,
+            onValueChange = { email ->
+                onPaymentDetailsChange(paymentDetails.copy(email = email))
+            },
+            label = { Text("Email Address") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // Process Payment Button
+        val canProcessPayment = paymentDetails.cardholderName.isNotBlank() && 
+                               paymentDetails.email.contains("@")
+        
+        Button(
+            onClick = onProcessPayment,
+            enabled = canProcessPayment,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Process Payment - $${String.format("%.2f", orderRequest.totalPrice)}")
+        }
+        
+        if (!canProcessPayment) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Please fill in all required fields",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+// Step 5: Processing Payment
+@Composable
+private fun ProcessingPaymentStep() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(48.dp),
+            color = MaterialTheme.colorScheme.primary
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Processing your payment...",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "Please wait while we process your payment securely",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+// Step 6: Order Confirmation
+@Composable
+private fun OrderConfirmationStep(
+    orderRequest: OrderRequest,
+    onClose: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Success Icon
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            modifier = Modifier.size(80.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Order Created Successfully!",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "Your payment has been processed and your order is confirmed.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Order Details
+        OutlinedCard(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "Order Details",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Total Amount:")
+                    Text(
+                        "$${String.format("%.2f", orderRequest.totalPrice)}",
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Boxes:")
+                    Text("${orderRequest.boxQuantities.sumOf { it.quantity }} boxes")
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Return Date:")
+                    Text(orderRequest.returnDate)
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Button(
+            onClick = onClose,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Close")
+        }
     }
 }

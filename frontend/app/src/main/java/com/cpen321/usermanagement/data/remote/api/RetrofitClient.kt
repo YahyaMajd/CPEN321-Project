@@ -40,6 +40,7 @@ object RetrofitClient {
     val hobbyInterface: HobbyInterface = retrofit.create(HobbyInterface::class.java)
     val orderInterface: OrderInterface = retrofit.create(OrderInterface::class.java)
     val jobApiService: JobApiService = retrofit.create(JobApiService::class.java)
+    val paymentInterface: PaymentInterface = retrofit.create(PaymentInterface::class.java)
 
     fun setAuthToken(token: String?) {
         authToken = token

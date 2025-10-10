@@ -22,6 +22,7 @@ import com.cpen321.usermanagement.ui.screens.JobDetailsScreen
 import com.cpen321.usermanagement.ui.screens.LoadingScreen
 import com.cpen321.usermanagement.ui.screens.MainScreen
 import com.cpen321.usermanagement.ui.screens.ManageHobbiesScreen
+import com.cpen321.usermanagement.ui.screens.ManageOrdersScreen
 import com.cpen321.usermanagement.ui.screens.ManageProfileScreen
 import com.cpen321.usermanagement.ui.screens.MoverMainScreen
 import com.cpen321.usermanagement.ui.screens.ProfileScreenActions
@@ -47,6 +48,8 @@ object NavRoutes {
     const val ROLE_SELECTION = "role_selection"
     const val MANAGE_PROFILE = "manage_profile"
     const val MANAGE_HOBBIES = "manage_hobbies"
+
+    const val MANAGE_ORDERS = "manage_orders"
     const val PROFILE_COMPLETION = "profile_completion"
 }
 
@@ -143,6 +146,11 @@ private fun handleNavigationEvent(
 
         is NavigationEvent.NavigateToManageHobbies -> {
             navController.navigate(NavRoutes.MANAGE_HOBBIES)
+            navigationStateManager.clearNavigationEvent()
+        }
+
+        is NavigationEvent.NavigateToManageOrders -> {
+            navController.navigate(NavRoutes.MANAGE_ORDERS)
             navigationStateManager.clearNavigationEvent()
         }
 
@@ -246,6 +254,7 @@ private fun AppNavHost(
                     onBackClick = { navigationStateManager.navigateBack() },
                     onManageProfileClick = { navigationStateManager.navigateToManageProfile() },
                     onManageHobbiesClick = { navigationStateManager.navigateToManageHobbies() },
+                    onManageOrdersClick = {navigationStateManager.navigateToManageOrders()},
                     onAccountDeleted = { navigationStateManager.handleAccountDeletion() },
                     onSignOut = {navigationStateManager.handleSignOut()}
                 )
@@ -266,6 +275,13 @@ private fun AppNavHost(
             )
         }
 
+        composable (NavRoutes.MANAGE_ORDERS){
+            ManageOrdersScreen(
+                profileViewModel = profileViewModel,
+                orderViewModel = orderViewModel,
+                onBackClick = { navigationStateManager.navigateBack()}
+            )
+        }
         composable(NavRoutes.ROLE_SELECTION) {
             RoleSelectionScreen(
                 onRoleSelected = { role: String ->

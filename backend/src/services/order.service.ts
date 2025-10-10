@@ -1,9 +1,10 @@
-import mongoose from "mongoose";
+import mongoose, { mongo, ObjectId } from "mongoose";
 import { orderModel } from "../models/order.model";
 import {WAREHOUSES} from "../constants/warehouses"
-import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CreateOrderResponse, Order, OrderStatus } from "../types/order.types";
+import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CreateOrderResponse, Order, OrderStatus, GetAllOrdersResponse, ACTIVE_ORDER_STATUSES } from "../types/order.types";
 import { jobService } from "./job.service";
 import logger from "../utils/logger.util";
+import { log } from "console";
 
 
 // OrderService Class
@@ -70,7 +71,7 @@ export class OrderService {
 
             // Create jobs for this order (storage and return)
             const finalReturnAddress = returnAddress || studentAddress;
-            
+
             await jobService.createJobsForOrder(
                 createdOrder._id.toString(),
                 reqData.studentId,
@@ -101,6 +102,42 @@ export class OrderService {
             throw new Error("Failed to create order");
         }
     }
+
+    async getUserActiveOrder(studentId: ObjectId | undefined): Promise<Order | null> {
+
+        const activeOrder = await orderModel.findActiveOrder({
+            studentId,
+            status: { $in: ACTIVE_ORDER_STATUSES }
+        });
+            return activeOrder;
+    }
+
+    async getAllOrders(studentId: ObjectId | undefined): Promise<GetAllOrdersResponse> {
+        try{
+            const orders = await orderModel.getAllOrders(studentId);
+            const mappedOrders = orders.map((order: Order) => ({
+                studentId: order.studentId.toString(),
+                status: order.status,
+                volume: order.volume,
+                totalPrice: order.price,
+                studentAddress: order.studentAddress,
+                warehouseAddress: order.warehouseAddress,
+                pickupTime: order.pickupTime,
+                returnTime: order.returnTime,
+            }));
+
+            return{
+
+                success: true,
+                orders: mappedOrders,
+                message: "Orders retrieved successfully",
+            };
+        } catch (error) {
+            logger.error("Error in getAllOrders service:", error);
+            throw new Error("Failed to get all orders");
+        }
+    }
+
 }
 
 export const orderService = new OrderService();
