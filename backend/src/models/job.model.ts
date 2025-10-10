@@ -129,6 +129,27 @@ export class JobModel {
       throw new Error("Failed to update job");
     }
   }
+
+  // Atomically accept a job: only set status to ACCEPTED when current status is AVAILABLE
+  async tryAcceptJob(jobId: mongoose.Types.ObjectId, moverId?: mongoose.Types.ObjectId) {
+    try {
+      const update: any = {
+        status: JobStatus.ACCEPTED,
+        updatedAt: new Date(),
+      };
+      if (moverId) update.moverId = moverId;
+
+      // Only apply if job is currently AVAILABLE
+      return await this.job.findOneAndUpdate(
+        { _id: jobId, status: JobStatus.AVAILABLE },
+        { $set: update },
+        { new: true }
+      );
+    } catch (error) {
+      logger.error("Error in tryAcceptJob:", error);
+      throw new Error("Failed to accept job");
+    }
+  }
 }
 
 export const jobModel = new JobModel();

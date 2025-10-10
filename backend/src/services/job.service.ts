@@ -218,26 +218,23 @@ export class JobService {
             if (updateData.moverId) {
                 updateFields.moverId = new mongoose.Types.ObjectId(updateData.moverId);
             }
+            logger.info(`Job ${jobId} updated BEFORE: status=${updateFields.status}`);
 
-            const updatedJob = await jobModel.update(
-                new mongoose.Types.ObjectId(jobId),
-                updateFields
-            );
-
-            logger.info(`Job ${jobId} updated: status=${updateFields.status}`);
-
-            if (!updatedJob) {
-                throw new Error("Job not found");
-            }
-
+            // If attempting to ACCEPT the job, perform an atomic accept to avoid races
+            let updatedJob;
             if (updateData.status === JobStatus.ACCEPTED) {
-                const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
-                if (job.status == JobStatus.ACCEPTED) {
-                    throw new Error("Job already accepted by another mover");
-                }  
-                logger.debug(`Found job for ACCEPTED flow: ${JSON.stringify(job)}`);
+                const moverObjectId = updateData.moverId ? new mongoose.Types.ObjectId(updateData.moverId) : undefined;
+                updatedJob = await jobModel.tryAcceptJob(new mongoose.Types.ObjectId(jobId), moverObjectId);
+
+                if (!updatedJob) {
+                    // No document returned -> job was not AVAILABLE (already accepted or not available)
+                    throw new Error("Job has already been accepted or is not available");
+                }
+
+                logger.info(`Job ${jobId} atomically accepted by mover=${updateData.moverId}`);
+
                 // job.orderId may be populated (document) or just an ObjectId
-                const rawOrderId: any = (job as any).orderId?._id ?? (job as any).orderId;
+                const rawOrderId: any = (updatedJob as any).orderId?._id ?? (updatedJob as any).orderId;
                 logger.info(`Attempting to update linked order status to ACCEPTED for orderId=${rawOrderId}`);
                 try {
                     const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.ACCEPTED });
@@ -245,6 +242,18 @@ export class JobService {
                 } catch (err) {
                     logger.error(`Failed to update order status to ACCEPTED for orderId=${rawOrderId}:`, err);
                     throw err;
+                }
+            } else {
+                // For non-ACCEPTED statuses, perform a simple update
+                updatedJob = await jobModel.update(
+                    new mongoose.Types.ObjectId(jobId),
+                    updateFields
+                );
+
+                logger.info(`Job ${jobId} updated: status=${updateFields.status}`);
+
+                if (!updatedJob) {
+                    throw new Error("Job not found");
                 }
             }
 
