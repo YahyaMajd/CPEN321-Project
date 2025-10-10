@@ -15,10 +15,86 @@ import {
     GetMoverJobsResponse
 } from "../types/job.type";
 import { Address, OrderStatus } from "../types/order.types";
-import { getIo } from "../socket";
+import { emitToRooms } from "../socket";
 import logger from "../utils/logger.util";
 
 export class JobService {
+    // Helper to emit job.created for a created job
+    private emitJobCreated(createdJob: any, meta?: any) {
+        try {
+            const payload = {
+                event: 'job.created',
+                job: {
+                    id: createdJob._id.toString(),
+                    orderId: (createdJob.orderId && (createdJob.orderId._id ?? createdJob.orderId)).toString(),
+                    jobType: createdJob.jobType,
+                    status: createdJob.status,
+                    moverId: createdJob.moverId?.toString(),
+                    pickupAddress: createdJob.pickupAddress,
+                    dropoffAddress: createdJob.dropoffAddress,
+                    scheduledTime: createdJob.scheduledTime,
+                    createdAt: createdJob.createdAt,
+                },
+                meta: meta ?? { ts: new Date().toISOString() }
+            };
+
+            try { emitToRooms([`order:${payload.job.orderId}`, `job:${payload.job.id}`, `user:${createdJob.studentId.toString()}`], 'job.created', payload, meta); } catch (e) { logger.warn('Failed to emit job.created', e); }
+        } catch (err) {
+            logger.warn('Failed to emit job.created event:', err);
+        }
+    }
+    // Helper to emit job.updated for a single job document
+    private emitJobUpdated(updatedJob: any, meta?: any) {
+        try {
+            const payload = {
+                event: 'job.updated',
+                job: {
+                    id: updatedJob._id.toString(),
+                    orderId: (updatedJob.orderId && (updatedJob.orderId._id ?? updatedJob.orderId)).toString(),
+                    status: updatedJob.status,
+                    moverId: updatedJob.moverId?.toString(),
+                    jobType: updatedJob.jobType,
+                    updatedAt: updatedJob.updatedAt,
+                },
+                meta: meta ?? { ts: new Date().toISOString() }
+            };
+
+            // Emit to order room, job room, and mover if assigned
+            try { emitToRooms([`order:${payload.job.orderId}`, `job:${payload.job.id}`], 'job.updated', payload, meta); } catch (e) { logger.warn('Failed to emit job.updated', e); }
+            if (updatedJob.moverId) {
+                try { emitToRooms([`user:${updatedJob.moverId.toString()}`], 'job.updated', payload, meta); } catch (e) { logger.warn('Failed to emit job.updated to mover', e); }
+            }
+        } catch (err) {
+            logger.warn('Failed to emit job.updated event:', err);
+        }
+    }
+
+    // Cancel (mark as CANCELLED) all jobs for a given orderId that are not already terminal
+    async cancelJobsForOrder(orderId: string, actorId?: string) {
+        try {
+            const foundJobs: any[] = await jobModel.findByOrderId(new mongoose.Types.ObjectId(orderId));
+            const toCancel = foundJobs.filter(j => j.status !== JobStatus.COMPLETED && j.status !== JobStatus.CANCELLED);
+
+            const results: Array<{ jobId: string; prevStatus: string; newStatus: string; moverId?: string }> = [];
+
+            for (const jobDoc of toCancel) {
+                try {
+                    const updatedJob = await jobModel.update(jobDoc._id, { status: JobStatus.CANCELLED, updatedAt: new Date() });
+                    results.push({ jobId: updatedJob._id.toString(), prevStatus: jobDoc.status, newStatus: updatedJob.status, moverId: updatedJob.moverId?.toString() });
+
+                    // Emit job.updated for each cancelled job
+                    this.emitJobUpdated(updatedJob, { by: actorId ?? null, ts: new Date().toISOString() });
+                } catch (err) {
+                    logger.error(`Failed to cancel job ${jobDoc._id} for order ${orderId}:`, err);
+                }
+            }
+
+            return { cancelledJobs: results };
+        } catch (error) {
+            logger.error('Error in cancelJobsForOrder:', error);
+            throw new Error('Failed to cancel jobs for order');
+        }
+    }
     async createJob(reqData: CreateJobRequest): Promise<CreateJobResponse> {
         try {
             const newJob: Job = {
@@ -36,7 +112,14 @@ export class JobService {
             };
 
             const createdJob = await jobModel.create(newJob);
-            
+
+            // Emit job.created so clients (movers/students) are notified in realtime
+            try {
+                this.emitJobCreated(createdJob, { by: reqData.studentId ?? null, ts: new Date().toISOString() });
+            } catch (emitErr) {
+                logger.warn('Failed to emit job.created after createJob:', emitErr);
+            }
+
             return {
                 success: true,
                 id: createdJob._id.toString(),
@@ -219,7 +302,6 @@ export class JobService {
             if (updateData.moverId) {
                 updateFields.moverId = new mongoose.Types.ObjectId(updateData.moverId);
             }
-            logger.info(`Job ${jobId} updated BEFORE: status=${updateFields.status}`);
 
             // If attempting to ACCEPT the job, perform an atomic accept to avoid races
             let updatedJob;
@@ -239,13 +321,17 @@ export class JobService {
                 logger.info(`Attempting to update linked order status to ACCEPTED for orderId=${rawOrderId}`);
                 try {
                     const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.ACCEPTED });
-                    logger.info(`Order ${rawOrderId} update result: ${JSON.stringify(orderUpdateResult)}`);
+                    logger.info(`Order Updated in Job Service${rawOrderId} update result: ${JSON.stringify(orderUpdateResult)}`);
                 } catch (err) {
                     logger.error(`Failed to update order status to ACCEPTED for orderId=${rawOrderId}:`, err);
                     throw err;
                 }
-
-                //TODO : Emit to job.updated in socket for simple updates
+                // Emit job.updated for the accepted job
+                try {
+                    this.emitJobUpdated(updatedJob, { by: updateData.moverId ?? null, ts: new Date().toISOString() });
+                } catch (emitErr) {
+                    logger.warn('Failed to emit job.updated after accept:', emitErr);
+                }
                 
             } else {
                 // For non-ACCEPTED statuses, perform a simple update
@@ -260,7 +346,12 @@ export class JobService {
                     throw new Error("Job not found");
                 }
 
-                //TODO: Emit to job.updated in socket for simple updates
+                // Emit job.updated for the updated job
+                try {
+                    this.emitJobUpdated(updatedJob, { by: updateData.moverId ?? null, ts: new Date().toISOString() });
+                } catch (emitErr) {
+                    logger.warn('Failed to emit job.updated after update:', emitErr);
+                }
                 
             }
 

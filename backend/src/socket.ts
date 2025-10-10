@@ -42,3 +42,27 @@ export function getIo(): Server {
   if (!io) throw new Error('Socket.io not initialized');
   return io;
 }
+
+// Centralized emit helper. rooms can be a string or array of strings.
+export function emitToRooms(rooms: string | string[], event: string, payload: any, meta?: any) {
+  try {
+    if (!io) {
+      logger.warn('emitToRooms called before socket initialized', { event, rooms });
+      return;
+    }
+
+    const roomList = Array.isArray(rooms) ? rooms : [rooms];
+    // Log a concise emission record for debugging/observability
+    logger.info(`Socket emit: event=${event} rooms=${roomList.join(',')} meta=${JSON.stringify(meta ?? {})}`);
+
+    for (const room of roomList) {
+      try {
+        io.to(room).emit(event, payload);
+      } catch (err) {
+        logger.warn(`Failed to emit ${event} to ${room}:`, err);
+      }
+    }
+  } catch (err) {
+    logger.error('emitToRooms error:', err);
+  }
+}

@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.cpen321.usermanagement.network.SocketClient
+import kotlinx.coroutines.flow.collect
 import javax.inject.Inject
 
 data class JobUiState(
@@ -21,7 +23,8 @@ data class JobUiState(
 
 @HiltViewModel
 class JobViewModel @Inject constructor(
-    private val jobRepository: JobRepository
+    private val jobRepository: JobRepository,
+    private val socketClient: SocketClient
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(JobUiState())
@@ -73,6 +76,33 @@ class JobViewModel @Inject constructor(
                         )
                     }
                 }
+            }
+        }
+    }
+
+    init {
+        // Subscribe to socket events and refresh lists when relevant events arrive.
+        viewModelScope.launch {
+            try {
+                socketClient.events.collect { ev ->
+                    when (ev.name) {
+                        "job.updated", "job.created" -> {
+                            // A job changed — refresh available and mover-specific lists
+                            loadAvailableJobs()
+                            loadMoverJobs()
+                        }
+                        "order.updated" -> {
+                            // Orders changing can affect available jobs (cancellations/accepts)
+                            loadAvailableJobs()
+                            loadMoverJobs()
+                        }
+                        else -> {
+                            // ignore other events
+                        }
+                    }
+                }
+            } catch (err: Exception) {
+                // Swallow to avoid crashing ViewModel; logs can be added if needed
             }
         }
     }

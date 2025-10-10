@@ -57,8 +57,7 @@ fun ManageOrdersScreen(
     var orders by remember { mutableStateOf<List<Order>>(emptyList()) }
     val appCtx = LocalContext.current.applicationContext
     
-    // Trigger to force refresh after order operations
-    var refreshTrigger by remember { mutableStateOf(0) }
+    // no refreshTrigger needed: we call viewModel.refreshAllOrders() directly
 
     //orderUI state collection
     val orderUi by orderViewModel.uiState.collectAsState()
@@ -67,8 +66,8 @@ fun ManageOrdersScreen(
     // Observe orders from ViewModel
     val ordersState by orderViewModel.orders.collectAsState()
 
-    LaunchedEffect(refreshTrigger) {
-        // initial load on open (or reload when refreshTrigger increments)
+    LaunchedEffect(Unit) {
+        // initial load on open
         orderViewModel.refreshAllOrders()
 
         // obtain SocketClient via Hilt EntryPoint
@@ -104,8 +103,8 @@ fun ManageOrdersScreen(
             orderViewModel,
             onClose = { orderViewModel.stopManaging() },
             onOrderCancelled = {
-                // Trigger refresh by incrementing the trigger
-                refreshTrigger++
+                // refresh list via ViewModel helper
+                orderViewModel.refreshAllOrders()
             }
         )
     }
