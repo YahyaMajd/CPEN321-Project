@@ -188,7 +188,10 @@ class OrderRepository @Inject constructor(
      * Clear active order (when starting new order or dismissing completed one)
      */
      suspend fun cancelOrder() {
-        orderApi.cancelOrder()
+        val response = orderApi.cancelOrder()
+        if (!response.isSuccessful) {
+            throw Exception("Failed to cancel order: ${response.code()} ${response.message()}")
+        }
     }
 
     /**

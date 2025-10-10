@@ -322,6 +322,32 @@ export class JobService {
                 try {
                     const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.ACCEPTED });
                     logger.info(`Order Updated in Job Service${rawOrderId} update result: ${JSON.stringify(orderUpdateResult)}`);
+                    // Emit order.updated so clients watching the order room get notified
+                    try {
+                        const meta = { by: updateData.moverId ?? null, ts: new Date().toISOString() };
+                        const orderPayload = {
+                            event: 'order.updated',
+                            order: {
+                                id: orderUpdateResult._id.toString(),
+                                studentId: orderUpdateResult.studentId.toString(),
+                                moverId: orderUpdateResult.moverId?.toString(),
+                                status: orderUpdateResult.status,
+                                volume: orderUpdateResult.volume,
+                                price: orderUpdateResult.price,
+                                studentAddress: orderUpdateResult.studentAddress,
+                                warehouseAddress: orderUpdateResult.warehouseAddress,
+                                returnAddress: orderUpdateResult.returnAddress,
+                                pickupTime: orderUpdateResult.pickupTime,
+                                returnTime: orderUpdateResult.returnTime,
+                                createdAt: orderUpdateResult.createdAt,
+                                updatedAt: orderUpdateResult.updatedAt,
+                            },
+                            meta: meta
+                        };
+                        emitToRooms([`user:${orderUpdateResult.studentId.toString()}`, `order:${orderUpdateResult._id.toString()}`], 'order.updated', orderPayload, meta);
+                    } catch (emitErr) {
+                        logger.warn('Failed to emit order.updated after accept in JobService:', emitErr);
+                    }
                 } catch (err) {
                     logger.error(`Failed to update order status to ACCEPTED for orderId=${rawOrderId}:`, err);
                     throw err;
@@ -365,9 +391,59 @@ export class JobService {
                     if (job.jobType === JobType.STORAGE) {
                         const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.IN_STORAGE });
                         logger.info(`Order ${rawOrderId} update result (IN_STORAGE): ${JSON.stringify(orderUpdateResult)}`);
+                        try {
+                            const meta = { by: updatedJob.moverId?.toString() ?? null, ts: new Date().toISOString() };
+                            const orderPayload = {
+                                event: 'order.updated',
+                                order: {
+                                    id: orderUpdateResult._id.toString(),
+                                    studentId: orderUpdateResult.studentId.toString(),
+                                    moverId: orderUpdateResult.moverId?.toString(),
+                                    status: orderUpdateResult.status,
+                                    volume: orderUpdateResult.volume,
+                                    price: orderUpdateResult.price,
+                                    studentAddress: orderUpdateResult.studentAddress,
+                                    warehouseAddress: orderUpdateResult.warehouseAddress,
+                                    returnAddress: orderUpdateResult.returnAddress,
+                                    pickupTime: orderUpdateResult.pickupTime,
+                                    returnTime: orderUpdateResult.returnTime,
+                                    createdAt: orderUpdateResult.createdAt,
+                                    updatedAt: orderUpdateResult.updatedAt,
+                                },
+                                meta: meta
+                            };
+                            emitToRooms([`user:${orderUpdateResult.studentId.toString()}`, `order:${orderUpdateResult._id.toString()}`], 'order.updated', orderPayload, meta);
+                        } catch (emitErr) {
+                            logger.warn('Failed to emit order.updated after IN_STORAGE in JobService:', emitErr);
+                        }
                     } else if (job.jobType === JobType.RETURN) {
                         const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.COMPLETED });
                         logger.info(`Order ${rawOrderId} update result (COMPLETED): ${JSON.stringify(orderUpdateResult)}`);
+                        try {
+                            const meta = { by: updatedJob.moverId?.toString() ?? null, ts: new Date().toISOString() };
+                            const orderPayload = {
+                                event: 'order.updated',
+                                order: {
+                                    id: orderUpdateResult._id.toString(),
+                                    studentId: orderUpdateResult.studentId.toString(),
+                                    moverId: orderUpdateResult.moverId?.toString(),
+                                    status: orderUpdateResult.status,
+                                    volume: orderUpdateResult.volume,
+                                    price: orderUpdateResult.price,
+                                    studentAddress: orderUpdateResult.studentAddress,
+                                    warehouseAddress: orderUpdateResult.warehouseAddress,
+                                    returnAddress: orderUpdateResult.returnAddress,
+                                    pickupTime: orderUpdateResult.pickupTime,
+                                    returnTime: orderUpdateResult.returnTime,
+                                    createdAt: orderUpdateResult.createdAt,
+                                    updatedAt: orderUpdateResult.updatedAt,
+                                },
+                                meta: meta
+                            };
+                            emitToRooms([`user:${orderUpdateResult.studentId.toString()}`, `order:${orderUpdateResult._id.toString()}`], 'order.updated', orderPayload, meta);
+                        } catch (emitErr) {
+                            logger.warn('Failed to emit order.updated after COMPLETED in JobService:', emitErr);
+                        }
                     }
                 } catch (err) {
                     logger.error(`Failed to update order status after job completion for orderId=${rawOrderId}:`, err);
