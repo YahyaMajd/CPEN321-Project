@@ -232,6 +232,9 @@ export class JobService {
 
             if (updateData.status === JobStatus.ACCEPTED) {
                 const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
+                if (job.status == JobStatus.ACCEPTED) {
+                    throw new Error("Job already accepted by another mover");
+                }  
                 logger.debug(`Found job for ACCEPTED flow: ${JSON.stringify(job)}`);
                 // job.orderId may be populated (document) or just an ObjectId
                 const rawOrderId: any = (job as any).orderId?._id ?? (job as any).orderId;
