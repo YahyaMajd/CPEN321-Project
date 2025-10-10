@@ -1,18 +1,24 @@
 package com.cpen321.usermanagement.ui.navigation
 
 import android.util.Log
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.cpen321.usermanagement.R
 import com.cpen321.usermanagement.ui.screens.AuthScreen
+import com.cpen321.usermanagement.ui.screens.AvailableJobsScreen
+import com.cpen321.usermanagement.ui.screens.JobDetailsScreen
 import com.cpen321.usermanagement.ui.screens.LoadingScreen
 import com.cpen321.usermanagement.ui.screens.MainScreen
 import com.cpen321.usermanagement.ui.screens.ManageHobbiesScreen
@@ -171,7 +177,7 @@ private fun handleNavigationEvent(
         }
 
         is NavigationEvent.NavigateToMoverMain -> {
-            navController.navigate(NavRoutes.MOVER) {
+            navController.navigate(Screen.MoverMain.route) {
                 popUpTo(0) { inclusive = true }
             }
             navigationStateManager.clearNavigationEvent()
@@ -292,10 +298,30 @@ private fun AppNavHost(
                 )
         }
 
-        composable(NavRoutes.MOVER) {
+        composable(Screen.MoverMain.route) {
             MoverMainScreen(
                 mainViewModel = mainViewModel,
                 onProfileClick = { navigationStateManager.navigateToProfile() }
+            )
+        }
+
+        composable(Screen.AvailableJobs.route) {
+            AvailableJobsScreen(
+                onJobDetails = { job ->
+                    navController.navigate("${Screen.JobDetails.route}/${job.id}")
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        composable(
+            route = "${Screen.JobDetails.route}/{jobId}",
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId") ?: return@composable
+            JobDetailsScreen(
+                jobId = jobId,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

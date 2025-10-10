@@ -25,6 +25,7 @@ export const createOrderSchema = z.object({
   warehouseAddress: addressSchema,
   pickupTime: z.string().datetime(),
   returnTime: z.string().datetime(),
+  returnAddress: addressSchema.optional(), // Optional return address
 });
 
 // Request types
@@ -61,6 +62,7 @@ export enum OrderStatus {
   ACCEPTED = "ACCEPTED",
   PICKED_UP = "PICKED_UP",
   IN_STORAGE = "IN_STORAGE",
+  COMPLETED = "COMPLETED", // Add COMPLETED status
   CANCELLED = "CANCELLED",
 }
 
@@ -79,7 +81,7 @@ export type Order = {
     price: number;
     studentAddress: Address;
     warehouseAddress: Address;  
-    returnAddress?: Address;
+    returnAddress?: Address; // Make it optional in type as well
     pickupTime: string; // ISO date string
     returnTime: string;  // ISO date string
 };

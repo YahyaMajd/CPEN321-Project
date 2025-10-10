@@ -2,6 +2,7 @@ import mongoose, { mongo, ObjectId } from "mongoose";
 import { orderModel } from "../models/order.model";
 import {WAREHOUSES} from "../constants/warehouses"
 import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CreateOrderResponse, Order, OrderStatus, GetAllOrdersResponse, ACTIVE_ORDER_STATUSES } from "../types/order.types";
+import { jobService } from "./job.service";
 import logger from "../utils/logger.util";
 import { log } from "console";
 
@@ -49,6 +50,7 @@ export class OrderService {
                 warehouseAddress,
                 pickupTime,
                 returnTime,
+                returnAddress,
             } = reqData;
 
             const studentObjectId = new mongoose.Types.ObjectId(studentId);
@@ -60,12 +62,27 @@ export class OrderService {
                 price: totalPrice,
                 studentAddress,
                 warehouseAddress,
-                returnAddress: undefined,
+                returnAddress: returnAddress || studentAddress, // Default to student address if not provided
                 pickupTime,
                 returnTime,
             };
 
             const createdOrder = await orderModel.create(newOrder);
+
+            // Create jobs for this order (storage and return)
+            const finalReturnAddress = returnAddress || studentAddress;
+
+            await jobService.createJobsForOrder(
+                createdOrder._id.toString(),
+                reqData.studentId,
+                reqData.volume,
+                reqData.totalPrice,
+                reqData.studentAddress,
+                reqData.warehouseAddress,
+                finalReturnAddress,
+                reqData.pickupTime,
+                reqData.returnTime
+            );
 
             return {
                 id: createdOrder._id.toString(),
@@ -87,7 +104,7 @@ export class OrderService {
     }
 
     async getUserActiveOrder(studentId: ObjectId | undefined): Promise<Order | null> {
-        
+
         const activeOrder = await orderModel.findActiveOrder({
             studentId,
             status: { $in: ACTIVE_ORDER_STATUSES }
@@ -108,9 +125,9 @@ export class OrderService {
                 pickupTime: order.pickupTime,
                 returnTime: order.returnTime,
             }));
-            
+
             return{
-                
+
                 success: true,
                 orders: mappedOrders,
                 message: "Orders retrieved successfully",
@@ -118,7 +135,7 @@ export class OrderService {
         } catch (error) {
             logger.error("Error in getAllOrders service:", error);
             throw new Error("Failed to get all orders");
-        } 
+        }
     }
 
 }

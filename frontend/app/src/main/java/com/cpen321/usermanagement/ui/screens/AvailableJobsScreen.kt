@@ -8,19 +8,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.cpen321.usermanagement.data.local.models.Job
-import com.cpen321.usermanagement.data.local.models.MoverAvailability
 import com.cpen321.usermanagement.ui.components.AvailableJobCard
+import com.cpen321.usermanagement.ui.viewmodels.JobViewModel
 
 @Composable
 fun AvailableJobsScreen(
-    jobs: List<Job>,
-    moverAvailability: MoverAvailability? = null,
-    onJobAccept: (Job) -> Unit,
     onJobDetails: (Job) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: JobViewModel = hiltViewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     var showOnlyAvailable by remember { mutableStateOf(false) }
+
+    // Load available jobs when screen is first composed
+    LaunchedEffect(Unit) {
+        viewModel.loadAvailableJobs()
+    }
 
     Column(
         modifier = modifier
@@ -52,16 +57,68 @@ fun AvailableJobsScreen(
                 )
             }
         }
-        
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(jobs) { job ->
-                AvailableJobCard(
-                    job = job,
-                    onAcceptClick = { onJobAccept(job) },
-                    onDetailsClick = { onJobDetails(job) }
-                )
+
+        when {
+            uiState.isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            uiState.error != null -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Error: ${uiState.error}",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = { viewModel.loadAvailableJobs() }) {
+                            Text("Retry")
+                        }
+                    }
+                }
+            }
+            else -> {
+                val jobsToShow = remember(uiState.availableJobs, showOnlyAvailable) {
+                    if (showOnlyAvailable) {
+                        // TODO: This is a placeholder. You need to implement the actual filtering
+                        // logic based on the mover's availability, which may require fetching that data.
+                        // For example: uiState.availableJobs.filter { job -> isWithinAvailability(job) }
+                        uiState.availableJobs
+                    } else {
+                        uiState.availableJobs
+                    }
+                }
+
+                if (jobsToShow.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No available jobs",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(jobsToShow) { job ->
+                            AvailableJobCard(
+                                job = job,
+                                onAcceptClick = { viewModel.acceptJob(job.id) },
+                                onDetailsClick = { onJobDetails(job) }
+                            )
+                        }
+                    }
+                }
             }
         }
     }
