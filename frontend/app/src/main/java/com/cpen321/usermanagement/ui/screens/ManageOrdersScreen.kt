@@ -17,8 +17,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.cpen321.usermanagement.utils.TimeUtils
 import com.cpen321.usermanagement.R
 import com.cpen321.usermanagement.ui.components.MessageSnackbar
 import com.cpen321.usermanagement.ui.components.MessageSnackbarState
@@ -36,7 +38,7 @@ private data class ManageOrdersScreenData(
 
 private data class ManageOrdersScreenActions(
     val onBackClick: () -> Unit,
-    val onHobbyToggle: (String) -> Unit,
+    val onManageOrderClick: (Order) -> Unit,
     val onSaveClick: () -> Unit
 )
 @Composable
@@ -49,9 +51,16 @@ fun ManageOrdersScreen(
     val snackBarHostState = remember { SnackbarHostState() }
      // Local state to hold orders
     var orders by remember { mutableStateOf<List<Order>>(emptyList()) }
+    
+    // Trigger to force refresh after order operations
+    var refreshTrigger by remember { mutableStateOf(0) }
+
+    //orderUI state collection
+    val orderUi by orderViewModel.uiState.collectAsState()
 
     // Load all orders on launch and refresh periodically
-    LaunchedEffect(Unit) {
+    // Also refresh when refreshTrigger changes (after cancellation)
+    LaunchedEffect(refreshTrigger) {
         while(true) {
             orderViewModel.getAllOrders()?.let { fetchedOrders ->
                 orders = fetchedOrders
@@ -70,10 +79,23 @@ fun ManageOrdersScreen(
         ),
         actions = ManageOrdersScreenActions(
             onBackClick = onBackClick,
-            onHobbyToggle = profileViewModel::toggleHobby,
+            onManageOrderClick = {order -> orderViewModel.onManageOrder(order) },
             onSaveClick = profileViewModel::saveHobbies
         )
     )
+
+    // Simple toggleable panel (bottom sheet or inline card)
+    if (orderUi.isManaging && orderUi.selectedOrder != null) {
+        ManageOrderSheet(
+            order = orderUi.selectedOrder!!,
+            orderViewModel,
+            onClose = { orderViewModel.stopManaging() },
+            onOrderCancelled = {
+                // Trigger refresh by incrementing the trigger
+                refreshTrigger++
+            }
+        )
+    }
 }
 
 @Composable
@@ -100,7 +122,10 @@ private fun ManageOrdersContent(
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
-            ManageOrdersBody(data.orders)
+            ManageOrdersBody(
+                data.orders,
+                actions.onManageOrderClick
+            )
         }
     }
 }
@@ -135,7 +160,8 @@ private fun ManageOrdersTopBar(
 
 @Composable 
 fun ManageOrdersBody(
-    orders: List<Order>
+    orders: List<Order>,
+    onManageOrdersClick : (Order)-> Unit
 ){
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -149,7 +175,10 @@ fun ManageOrdersBody(
         } else {
             LazyColumn {
                 items(orders) { order ->
-                    OrderListItem(order)
+                    OrderListItem(
+                        order,
+                        onManageOrdersClick as (Order) -> Unit
+                    )
                 }
             }
         }
@@ -158,7 +187,10 @@ fun ManageOrdersBody(
 }
 
 @Composable
-fun OrderListItem(order: Order) {
+fun OrderListItem(
+    order: Order,
+    onManageOrderClick: (Order) -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -169,8 +201,58 @@ fun OrderListItem(order: Order) {
             Text("Order ID: ${order.id ?: "N/A"}", style = MaterialTheme.typography.bodyMedium)
             Text("Status: ${order.status}", style = MaterialTheme.typography.bodySmall)
             Text("Price: $${order.price}", style = MaterialTheme.typography.bodySmall)
-            Text("Pickup: ${order.pickupTime}", style = MaterialTheme.typography.bodySmall)
-            Text("Return: ${order.returnTime}", style = MaterialTheme.typography.bodySmall)
+            Text("Pickup: ${TimeUtils.formatPickupTime(order.pickupTime)}", style = MaterialTheme.typography.bodySmall)
+            Text("Return: ${TimeUtils.formatPickupTime(order.returnTime)}", style = MaterialTheme.typography.bodySmall)
+            Button(
+                onClick = { onManageOrderClick(order) },
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .align(Alignment.End)
+            ) {
+                Text("Manage Order")
+            }
         }
     }
+}
+
+@Composable
+fun ManageOrderSheet(
+    order: Order,
+    orderViewModel: OrderViewModel,
+    onClose: () -> Unit,
+    onOrderCancelled: () -> Unit = {}
+) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Manage Order") },
+        text = {
+            Column {
+                Text("Order ID: ${order.id ?: "N/A"}")
+                Text("Status: ${order.status}")
+                Text("Pickup: ${TimeUtils.formatPickupTime(order.pickupTime)}")
+                Text("Return: ${TimeUtils.formatPickupTime(order.returnTime)}")
+                Button(
+                    onClick = {
+                        orderViewModel.cancelOrder() { err ->
+                            // Optionally show a snackbar/toast
+                            if (err == null) {
+                                // Close sheet and trigger refresh on success
+                                onOrderCancelled()
+                                onClose()
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .align(Alignment.End)
+                ) {
+                    Text("Cancel Order")
+                }
+                // add actions: cancel, contact mover, track, etc.
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onClose) { Text("Close") }
+        }
+    )
 }

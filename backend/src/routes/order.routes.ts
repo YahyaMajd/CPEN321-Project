@@ -30,6 +30,10 @@ router.get(
     (req, res, next) => orderController.getActiveOrder(req, res, next)
 );
 
+router.delete('/cancel-order',
+    (req, res, next) => orderController.cancelOrder(req, res, next)
+);
+
 // IMPLEMENTATION PENDING IN CONTROLLER AND SERVICE
 // router.put(
 //     '/:orderId/status',

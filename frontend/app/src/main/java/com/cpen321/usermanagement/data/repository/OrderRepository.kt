@@ -2,14 +2,9 @@ package com.cpen321.usermanagement.data.repository
 
 import com.cpen321.usermanagement.data.local.models.*
 import com.cpen321.usermanagement.data.remote.api.OrderInterface
-import com.cpen321.usermanagement.utils.LocationUtils
-import com.google.errorprone.annotations.FormatString
+import com.cpen321.usermanagement.data.remote.api.RetrofitClient
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,11 +17,12 @@ class OrderRepository @Inject constructor(
     // Store last quote response for order creation
     private var lastQuoteResponse: GetQuoteResponse? = null
     private var lastStudentAddress: Address? = null
+    private var isSubmitting: Boolean = false
     
     /**
      * Helper to get current user ID
      */
-    private suspend fun getCurrentUserId(): String? {
+     private suspend fun getCurrentUserId(): String? {
         return authRepository.getCurrentUser()?._id
     }
     
@@ -110,27 +106,38 @@ class OrderRepository @Inject constructor(
      * Submit order to backend API
      */
     suspend fun submitOrder(orderRequest: OrderRequest): Result<Order> {
+        // prevent concurrent submits
+        if (isSubmitting) return Result.failure(Exception("Already submitting"))
+        isSubmitting = true
+        // generate an idempotency key for this flow
+        val idempotencyKey = java.util.UUID.randomUUID().toString()
+        RetrofitClient.setIdempotencyKeyProvider { idempotencyKey }
+
         return try {
-            println("🚀 OrderRepository: Starting order submission")
+            println("🚀 OrderRepository: Starting order submission (idempotency=$idempotencyKey)")
             println("📦 OrderRequest: $orderRequest")
-            
+
             val createOrderRequest = transformToCreateOrderRequest(orderRequest, lastStudentAddress, lastQuoteResponse?.warehouseAddress)
-            ?: return Result.failure(Exception("Failed to create order request"))
-            
+                ?: return Result.failure(Exception("Failed to create order request"))
+
             println("🌐 CreateOrderRequest: $createOrderRequest")
             val response = orderApi.placeOrder(createOrderRequest)
             println("📡 Response code: ${response.code()}")
             println("📡 Response message: ${response.message()}")
             if (response.isSuccessful) {
-                response.body()?.let { 
+                response.body()?.let {
                     Result.success(it)
                 } ?: Result.failure(Exception("Empty response"))
             } else {
                 Result.failure(Exception("Failed to place order: ${response.message()}"))
             }
-           
+
         } catch (e: Exception) {
             Result.failure(e)
+        } finally {
+            isSubmitting = false
+            // clear provider
+            RetrofitClient.setIdempotencyKeyProvider { null }
         }
     }
     
@@ -150,6 +157,9 @@ class OrderRepository @Inject constructor(
             }
     }
 
+    /**
+     * Get all orders
+     */
     suspend fun getAllOrders(): List<Order>? {
         val response = orderApi.getAllOrders()
         if (response.isSuccessful) {
@@ -177,18 +187,21 @@ class OrderRepository @Inject constructor(
     /**
      * Complete order (move from active to history only)
      */
-    suspend fun completeOrder(orderId: String) {
+    suspend fun completeOrder() {
        // updateOrderStatus(orderId, OrderStatus.IN_STORAGE)
         // Keep in active until user dismisses or starts new order
     }
 
-    
     /**
-     * Get all orders
+     * Clear active order (when starting new order or dismissing completed one)
      */
+     suspend fun cancelOrder() {
+        orderApi.cancelOrder()
+    }
 
 
-        /**
+
+    /**
      * Update order status (for testing state transitions)
      */
     // suspend fun updateOrderStatus(orderId: String, newStatus: OrderStatus) {
@@ -209,29 +222,6 @@ class OrderRepository @Inject constructor(
     //     }
     // }
 
-     /**
-     * Update order status (for testing state transitions)
-     */
-    // suspend fun updateOrderStatus(orderId: String, newStatus: OrderStatus): Result<Order> {
-    //     return try {
-    //         val response = orderApi.updateOrderStatus(orderId, newStatus)
-    //         if (response.isSuccessful) {
-    //             Result.success(response.body()!!)
-    //         } else {
-    //             Result.failure(Exception("Failed to update order status: ${response.message()}"))
-    //         }
-    //     } catch (e: Exception) {
-    //         Result.failure(e)
-    //     }
-    // }
-    
-
-    /**
-     * Clear active order (when starting new order or dismissing completed one)
-     */
-    // suspend fun clearActiveOrder() {
-    //     _activeOrder.value = null
-    // }
 
     /**
      * Mock method to simulate order progression (for testing)

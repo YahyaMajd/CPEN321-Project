@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { OrderService } from '../services/order.service';
-import { CreateOrderRequest, CreateOrderResponse, QuoteRequest, GetQuoteResponse, GetAllOrdersResponse, Order } from '../types/order.types';
+import { CreateOrderRequest, CreateOrderResponse, QuoteRequest, GetQuoteResponse, GetAllOrdersResponse, CancelOrderResponse, Order } from '../types/order.types';
 import mongoose, { mongo, ObjectId } from "mongoose";
 import logger from '../utils/logger.util';
 
@@ -18,7 +18,10 @@ export class OrderController {
 
     async createOrder(req: Request<{}, {}, CreateOrderRequest>, res: Response<CreateOrderResponse>, next: NextFunction) {
         try {
-            const result = await this.orderService.createOrder(req.body);
+            // Pass idempotency key from header (if present) into the request body for service handling
+            const idempotencyKey = req.header('Idempotency-Key') || undefined;
+            const reqWithKey = { ...req.body, idempotencyKey } as any;
+            const result = await this.orderService.createOrder(reqWithKey);
             res.status(201).json(result);
         } catch (error) {            
             // TODo: improve error handling
@@ -50,6 +53,16 @@ export class OrderController {
             res.status(200).json(order);
         } catch (error) {
             logger.error("Error in getActiveOrder controller:", error);
+            next(error);
+        }
+    }
+
+    async cancelOrder(req: Request, res: Response<CancelOrderResponse>, next: NextFunction) {
+        try {
+            const result = await this.orderService.cancelOrder(req.user?._id as ObjectId | undefined);
+            res.status(200).json(result);
+        } catch (error) {
+            logger.error("Error in cancelOrder controller:", error);
             next(error);
         }
     }

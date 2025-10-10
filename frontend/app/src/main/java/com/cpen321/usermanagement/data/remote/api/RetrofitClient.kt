@@ -19,9 +19,23 @@ object RetrofitClient {
     }
 
     private val authInterceptor = AuthInterceptor { authToken }
+    // idempotency key provider (set by repository when starting a flow)
+    private var idempotencyKeyProvider: (() -> String?)? = null
+
+    // Interceptor to add Idempotency-Key header when available
+    private val idempotencyInterceptor = okhttp3.Interceptor { chain ->
+        val original = chain.request()
+        val builder = original.newBuilder()
+        val key = idempotencyKeyProvider?.invoke()
+        if (!key.isNullOrBlank()) {
+            builder.header("Idempotency-Key", key)
+        }
+        chain.proceed(builder.build())
+    }
 
     private val httpClient = OkHttpClient.Builder()
         .addInterceptor(authInterceptor)
+        .addInterceptor(idempotencyInterceptor)
         .addInterceptor(loggingInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -44,6 +58,10 @@ object RetrofitClient {
 
     fun setAuthToken(token: String?) {
         authToken = token
+    }
+
+    fun setIdempotencyKeyProvider(provider: () -> String?) {
+        idempotencyKeyProvider = provider
     }
 
     fun getPictureUri(picturePath: String): String {

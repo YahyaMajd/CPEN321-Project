@@ -48,6 +48,8 @@ fun CreateOrderBottomSheet(
     var orderRequest by remember { mutableStateOf<OrderRequest?>(null) }
     var paymentIntentResponse by remember { mutableStateOf<CreatePaymentIntentResponse?>(null) }
     var paymentDetails by remember { mutableStateOf(PaymentDetails()) }
+    // Prevent duplicate submissions from UI
+    var isSubmitting by remember { mutableStateOf(false) }
     
     // Error handling
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -180,10 +182,15 @@ fun CreateOrderBottomSheet(
                         onPaymentDetailsChange = { details ->
                             paymentDetails = details
                         },
+                        isSubmitting = isSubmitting,
                         onProcessPayment = {
+                            // Prevent duplicate starts
+                            if (isSubmitting) return@PaymentDetailsStep
+                            isSubmitting = true
+
                             currentStep = OrderCreationStep.PROCESSING_PAYMENT
                             errorMessage = null
-                            
+
                             // Create payment intent and process payment
                             coroutineScope.launch {
                                 try {
@@ -194,41 +201,44 @@ fun CreateOrderBottomSheet(
                                         onSuccess = { intent ->
                                             println("Payment intent created successfully: ${intent.id}")
                                             paymentIntentResponse = intent
-                                            
+
                                             // Step 2: Process payment with customer info
                                             val customerInfo = CustomerInfo(
                                                 name = paymentDetails.cardholderName,
                                                 email = paymentDetails.email,
                                                 address = PaymentAddress(
                                                     line1 = order.currentAddress,
-                                                    city = "Vancouver", // Extract from address if needed
+                                                    city = "Vancouver",
                                                     state = "BC",
-                                                    postalCode = "V6T1Z4", // Extract from address if needed
+                                                    postalCode = "V6T1Z4",
                                                     country = "CA"
                                                 )
                                             )
-                                            
+
                                             println("Processing payment with intent ID: ${intent.id}")
                                             val paymentResult = paymentRepository.processPayment(
                                                 intent.id,
                                                 customerInfo,
                                                 TestPaymentMethods.VISA_SUCCESS // Use selected test card
                                             )
-                                            
+
                                             paymentResult.fold(
                                                 onSuccess = { payment ->
                                                     if (payment.status == "SUCCEEDED") {
-                                                        // Submit order to backend
+                                                        // Submit order to backend (UI-level guard prevents double-call)
                                                         onSubmitOrder(order)
                                                         currentStep = OrderCreationStep.ORDER_CONFIRMATION
+                                                        // keep isSubmitting=true until sheet closes to avoid re-submits
                                                     } else {
                                                         errorMessage = "Payment failed: ${payment.status}"
                                                         currentStep = OrderCreationStep.PAYMENT_DETAILS
+                                                        isSubmitting = false
                                                     }
                                                 },
                                                 onFailure = { exception ->
                                                     errorMessage = "Payment processing failed: ${exception.message}"
                                                     currentStep = OrderCreationStep.PAYMENT_DETAILS
+                                                    isSubmitting = false
                                                 }
                                             )
                                         },
@@ -236,11 +246,13 @@ fun CreateOrderBottomSheet(
                                             println("Failed to create payment intent: ${exception.message}")
                                             errorMessage = "Failed to create payment: ${exception.message}"
                                             currentStep = OrderCreationStep.PAYMENT_DETAILS
+                                            isSubmitting = false
                                         }
                                     )
                                 } catch (e: Exception) {
                                     errorMessage = "Payment failed. Please try again."
                                     currentStep = OrderCreationStep.PAYMENT_DETAILS
+                                    isSubmitting = false
                                 }
                             }
                         }
@@ -725,6 +737,7 @@ private fun PaymentDetailsStep(
     orderRequest: OrderRequest,
     paymentDetails: PaymentDetails,
     onPaymentDetailsChange: (PaymentDetails) -> Unit,
+    isSubmitting: Boolean,
     onProcessPayment: () -> Unit
 ) {
     var selectedTestCard by remember { mutableStateOf(TestPaymentMethods.TEST_CARDS[0]) }
@@ -858,10 +871,21 @@ private fun PaymentDetailsStep(
         
         Button(
             onClick = onProcessPayment,
-            enabled = canProcessPayment,
+            enabled = canProcessPayment && !isSubmitting,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Process Payment - $${String.format("%.2f", orderRequest.totalPrice)}")
+            if (isSubmitting) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Processing...")
+                }
+            } else {
+                Text("Process Payment - $${String.format("%.2f", orderRequest.totalPrice)}")
+            }
         }
         
         if (!canProcessPayment) {

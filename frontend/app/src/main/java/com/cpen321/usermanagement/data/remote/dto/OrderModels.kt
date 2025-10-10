@@ -18,6 +18,15 @@ data class CreateOrderRequest(
     val returnTime: String  // ISO string format
 )
 
+data class CancelOrderRequest(
+    val studentId: String?
+)
+
+data class CancelOrderResponse(
+    val success: Boolean,
+    val message: String
+)
+
 // OrderDto.kt
 data class OrderDto(
     val studentId: String,

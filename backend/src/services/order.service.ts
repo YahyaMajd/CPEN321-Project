@@ -1,9 +1,9 @@
 import mongoose, { mongo, ObjectId } from "mongoose";
 import { orderModel } from "../models/order.model";
 import {WAREHOUSES} from "../constants/warehouses"
-import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CreateOrderResponse, Order, OrderStatus, GetAllOrdersResponse, ACTIVE_ORDER_STATUSES } from "../types/order.types";
-import { jobService } from "./job.service";
+import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CancelOrderResponse, CreateOrderResponse, Order, OrderStatus, GetAllOrdersResponse, ACTIVE_ORDER_STATUSES } from "../types/order.types";
 import logger from "../utils/logger.util";
+import { jobService } from "./job.service";
 import { log } from "console";
 
 
@@ -39,8 +39,30 @@ export class OrderService {
         }
     }
 
-    async createOrder(reqData: CreateOrderRequest): Promise<CreateOrderResponse> {
+    async createOrder(reqData: CreateOrderRequest & { idempotencyKey?: string }): Promise<CreateOrderResponse> {
         try {
+            const idempotencyKey = (reqData as any).idempotencyKey as string | undefined;
+
+            // If idempotency key provided, return existing order with that key
+            if (idempotencyKey) {
+                const byKey = await orderModel.findByIdempotencyKey(idempotencyKey);
+                if (byKey) {
+                    return {
+                        id: (byKey as any)._id.toString(),
+                        studentId: (byKey as any).studentId.toString(),
+                        moverId: (byKey as any).moverId?.toString(),
+                        status: byKey.status,
+                        volume: byKey.volume,
+                        price: byKey.price,
+                        studentAddress: byKey.studentAddress,
+                        warehouseAddress: byKey.warehouseAddress,
+                        returnAddress: byKey.returnAddress,
+                        pickupTime: byKey.pickupTime,
+                        returnTime: byKey.returnTime,
+                    };
+                }
+            }
+
             // Extract required data
             const {
                 studentId,
@@ -51,11 +73,11 @@ export class OrderService {
                 pickupTime,
                 returnTime,
                 returnAddress,
-            } = reqData;
+            } = reqData as any;
 
             const studentObjectId = new mongoose.Types.ObjectId(studentId);
 
-            const newOrder: Order = {
+            const newOrder: any = {
                 studentId: studentObjectId,
                 status: OrderStatus.PENDING,
                 volume,
@@ -65,14 +87,17 @@ export class OrderService {
                 returnAddress: returnAddress || studentAddress, // Default to student address if not provided
                 pickupTime,
                 returnTime,
+                idempotencyKey: idempotencyKey,
             };
 
-            const createdOrder = await orderModel.create(newOrder);
+            if (idempotencyKey) newOrder.idempotencyKey = idempotencyKey;
 
             // Create jobs for this order (storage and return)
             const finalReturnAddress = returnAddress || studentAddress;
+            try {
+                const createdOrder = await orderModel.create(newOrder);
 
-            await jobService.createJobsForOrder(
+                await jobService.createJobsForOrder(
                 createdOrder._id.toString(),
                 reqData.studentId,
                 reqData.volume,
@@ -82,21 +107,51 @@ export class OrderService {
                 finalReturnAddress,
                 reqData.pickupTime,
                 reqData.returnTime
-            );
+                );
+                return {
+                    id: createdOrder._id.toString(),
+                    studentId: createdOrder.studentId.toString(),
+                    moverId: createdOrder.moverId?.toString(),
+                    status: createdOrder.status,
+                    volume: createdOrder.volume,
+                    price: createdOrder.price,
+                    studentAddress: createdOrder.studentAddress,
+                    warehouseAddress: createdOrder.warehouseAddress,
+                    returnAddress: createdOrder.returnAddress,
+                    pickupTime: createdOrder.pickupTime,
+                    returnTime: createdOrder.returnTime,
+                };
+            } catch (err: any) {
+                // If duplicate key error due to race/uniqueness, try to find existing by idempotencyKey or by student+status
+                const isDup = err && err.code === 11000;
+                if (isDup) {
+                    if (idempotencyKey) {
+                        const byKey = await orderModel.findByIdempotencyKey(idempotencyKey);
+                        if (byKey) {
+                            return {
+                                id: (byKey as any)._id.toString(),
+                                studentId: (byKey as any).studentId.toString(),
+                                moverId: (byKey as any).moverId?.toString(),
+                                status: byKey.status,
+                                volume: byKey.volume,
+                                price: byKey.price,
+                                studentAddress: byKey.studentAddress,
+                                warehouseAddress: byKey.warehouseAddress,
+                                returnAddress: byKey.returnAddress,
+                                pickupTime: byKey.pickupTime,
+                                returnTime: byKey.returnTime,
+                            };
+                        }
+                    }
+                }
 
-            return {
-                id: createdOrder._id.toString(),
-                studentId: createdOrder.studentId.toString(),
-                moverId: createdOrder.moverId?.toString(),
-                status: createdOrder.status,
-                volume: createdOrder.volume,
-                price: createdOrder.price,
-                studentAddress: createdOrder.studentAddress,
-                warehouseAddress: createdOrder.warehouseAddress,
-                returnAddress: createdOrder.returnAddress,
-                pickupTime: createdOrder.pickupTime,
-                returnTime: createdOrder.returnTime,
-            };
+                logger.error("Error creating order:", err);
+                throw err;
+            }
+            
+
+
+            
         } catch (error) {
             logger.error("Error in createOrder service:", error);
             throw new Error("Failed to create order");
@@ -135,6 +190,32 @@ export class OrderService {
         } catch (error) {
             logger.error("Error in getAllOrders service:", error);
             throw new Error("Failed to get all orders");
+        }
+    }
+
+    async cancelOrder(studentId: ObjectId | undefined): Promise<CancelOrderResponse> {
+        try {
+            const order = await orderModel.findActiveOrder({
+                studentId,
+                status: { $in: ACTIVE_ORDER_STATUSES }
+            });
+
+            if (!order) {
+                return { success: false, message: "Order not found" };
+            }
+
+            if (order.status !== OrderStatus.PENDING) {
+                return { success: false, message: "Only pending orders can be cancelled" };
+            }
+
+            // Update the order status to CANCELLED
+            const orderId = (order as any)._id as mongoose.Types.ObjectId;
+            await orderModel.update(orderId, { status: OrderStatus.CANCELLED });
+
+            return { success: true, message: "Order cancelled successfully" };
+        } catch (error) {
+            logger.error("Error in cancelOrder service:", error);
+            throw new Error("Failed to cancel order");
         }
     }
 

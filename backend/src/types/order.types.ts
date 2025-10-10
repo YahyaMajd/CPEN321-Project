@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { success, z } from "zod";
 import mongoose from "mongoose";
 
 export const addressSchema = z.object({
@@ -52,6 +52,10 @@ export type GetAllOrdersResponse = {
     message: string;
 }
 
+export type CancelOrderResponse = {
+    success: boolean;
+    message: string;
+}
 
 // Generic type
 // ------------------------------------------------------------

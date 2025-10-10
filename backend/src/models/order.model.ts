@@ -45,13 +45,25 @@ const orderSchema = new Schema(
     },
     studentAddress: { type: addressSubSchema, required: true },
     warehouseAddress: { type: addressSubSchema, required: true },
-    returnAddress: { type: addressSubSchema, required: false }, // the location that boxes from warehouse go to 
+      returnAddress: { type: addressSubSchema, required: false }, // the location that boxes from warehouse go to 
+      idempotencyKey: { type: String, required: false },
     pickupTime: { type: Date, required: true },
     returnTime: { type: Date, required: false },
   },
   {
     timestamps: true,
   }
+);
+
+// Indexes to prevent duplicate pending orders and support idempotency
+orderSchema.index(
+  { studentId: 1, status: 1 },
+  { unique: true, partialFilterExpression: { status: "PENDING" } }
+);
+
+orderSchema.index(
+  { idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $exists: true } } }
 );
 
 // OrderModel class
@@ -101,6 +113,15 @@ export class OrderModel {
     } catch (error) {
         logger.error("Error finding active order:", error);
         throw new Error("Failed to find active order");
+    }
+  }
+
+  async findByIdempotencyKey(key: string) {
+    try {
+      return await this.order.findOne({ idempotencyKey: key });
+    } catch (error) {
+      logger.error("Error finding by idempotencyKey:", error);
+      throw new Error("Failed to find by idempotencyKey");
     }
   }
 

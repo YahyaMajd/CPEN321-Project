@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import com.cpen321.usermanagement.utils.TimeUtils
 import androidx.compose.ui.unit.dp
 import com.cpen321.usermanagement.data.local.models.Order
 import com.cpen321.usermanagement.data.local.models.OrderStatus
@@ -137,26 +138,15 @@ private fun ActiveOrderStatusContent(
             StatusDetailRow(
                 icon = Icons.Default.Info,
                 label ="Pickup Date",
-                value = "${formatPickupTime(order.pickupTime)}"
+                value = "${TimeUtils.formatPickupTime(order.pickupTime)}"
             )
 
             StatusDetailRow(
                 icon = Icons.Default.Info,
                 label ="Return Date",
-                value = "${formatPickupTime(order.returnTime)}"
+                value = "${TimeUtils.formatPickupTime(order.returnTime)}"
             )
         }
-    }
-}
-
-
-fun formatPickupTime(isoString: String): String {
-    return try {
-        val date = ZonedDateTime.parse(isoString)
-        val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm a")
-        date.format(formatter)
-    } catch (e: Exception) {
-        isoString // fallback to raw string if parsing fails
     }
 }
 
