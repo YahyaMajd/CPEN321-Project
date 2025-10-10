@@ -97,21 +97,5 @@ class OrderViewModel @Inject constructor(
             }
         }
     }
-
-
-
-
-
-    //    fun simulateProgress(orderId: String) {
-    //        viewModelScope.launch {
-    //            repository.simulateOrderProgress(orderId)
-    //        }
-    //    }
-
-    //    fun updateOrderStatus(orderId: String, newStatus: com.cpen321.usermanagement.data.local.models.OrderStatus) {
-    //        viewModelScope.launch {
-    //            repository.updateOrderStatus(orderId, newStatus)
-    //        }
-    //    }
 }
 

@@ -49,10 +49,10 @@ fun MoverMainScreen(
         jobViewModel.loadAvailableJobs()
     }
 
-    // Filter current jobs (assigned or in progress)
+    // Filter current jobs (ACCEPTED or in progress)
     val currentJobs = remember(jobUiState.moverJobs) {
         jobUiState.moverJobs.filter { 
-            it.status == JobStatus.ASSIGNED || it.status == JobStatus.IN_PROGRESS 
+            it.status == JobStatus.ACCEPTED || it.status == JobStatus.PICKED_UP
         }
     }
 

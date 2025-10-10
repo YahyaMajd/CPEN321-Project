@@ -185,56 +185,17 @@ class OrderRepository @Inject constructor(
     }
 
     /**
-     * Complete order (move from active to history only)
-     */
-    suspend fun completeOrder() {
-       // updateOrderStatus(orderId, OrderStatus.IN_STORAGE)
-        // Keep in active until user dismisses or starts new order
-    }
-
-    /**
      * Clear active order (when starting new order or dismissing completed one)
      */
      suspend fun cancelOrder() {
         orderApi.cancelOrder()
     }
 
-
-
     /**
-     * Update order status (for testing state transitions)
+     * Complete order (move from active to history only)
      */
-    // suspend fun updateOrderStatus(orderId: String, newStatus: OrderStatus) {
-    //     val currentOrder = _activeOrder.value
-    //     if (currentOrder?.id == orderId) {
-    //         val updatedOrder = currentOrder.copy(
-    //             status = newStatus
-    //         )
-    //         _activeOrder.value = updatedOrder
-            
-    //         // Update in history as well
-    //         val currentHistory = _orderHistory.value.toMutableList()
-    //         val index = currentHistory.indexOfFirst { it.id == orderId }
-    //         if (index != -1) {
-    //             currentHistory[index] = updatedOrder
-    //             _orderHistory.value = currentHistory
-    //         }
-    //     }
-    // }
-
-
-    /**
-     * Mock method to simulate order progression (for testing)
-     */
-    // suspend fun simulateOrderProgress(orderId: String) {
-    //     val currentOrder = _activeOrder.value ?: return
-    //     if (currentOrder.id != orderId) return
-
-    //     when (currentOrder.status) {
-    //         OrderStatus.PENDING -> updateOrderStatus(orderId, OrderStatus.ACCEPTED)
-    //         OrderStatus.ACCEPTED -> updateOrderStatus(orderId, OrderStatus.PICKED_UP)
-    //         OrderStatus.PICKED_UP -> updateOrderStatus(orderId, OrderStatus.IN_STORAGE)
-    //         else -> { /* No change */ }
-    //     }
-    // }
+    suspend fun completeOrder() {
+        // updateOrderStatus(orderId, OrderStatus.IN_STORAGE)
+        // Keep in active until user dismisses or starts new order
+    }
 }

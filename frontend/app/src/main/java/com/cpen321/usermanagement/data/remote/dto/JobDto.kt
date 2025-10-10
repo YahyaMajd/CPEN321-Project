@@ -50,8 +50,9 @@ data class UpdateJobStatusRequest(
 
 enum class JobStatus(val value: String) {
     AVAILABLE("AVAILABLE"),
-    ASSIGNED("ASSIGNED"),
-    IN_PROGRESS("IN_PROGRESS"),
+    ACCEPTED("ACCEPTED"),
+    PICKED_UP("PICKED_UP"),
+   // IN_STORAGE("IN_STORAGE"),
     COMPLETED("COMPLETED"),
     CANCELLED("CANCELLED")
 }

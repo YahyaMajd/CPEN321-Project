@@ -9,6 +9,7 @@ import {
     UpdateJobStatusRequest,
     JobResponse
 } from '../types/job.type';
+import logger from '../utils/logger.util';
 
 export class JobController {
     constructor(private jobService: JobService) {}
@@ -63,15 +64,18 @@ export class JobController {
 
     async updateJobStatus(req: Request<{ id: string }, {}, UpdateJobStatusRequest>, res: Response<JobResponse>, next: NextFunction) {
         try {
-            // If the user is accepting a job (status = ASSIGNED) and no moverId is provided,
+            // If the user is accepting a job (status = ACCEPTED) and no moverId is provided,
             // use the authenticated user's ID
-            if (req.body.status === "ASSIGNED" && !req.body.moverId && req.user) {
+            logger.info(`updateJobStatus called for jobId=${req.params.id} payload=${JSON.stringify(req.body)}`);
+            if (req.body.status === "ACCEPTED" && !req.body.moverId && req.user) {
                 req.body.moverId = req.user._id.toString();
+                logger.info(`Assigned moverId from authenticated user: ${req.body.moverId}`);
             }
-            
+
             const result = await this.jobService.updateJobStatus(req.params.id, req.body);
             res.status(200).json(result);
         } catch (error) {
+            logger.error(`Error in updateJobStatus controller for jobId=${req.params.id}:`, error);
             next(error);
         }
     }

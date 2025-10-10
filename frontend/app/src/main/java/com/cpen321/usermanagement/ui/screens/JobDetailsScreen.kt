@@ -79,8 +79,9 @@ fun JobDetailsScreen(
                                 shape = MaterialTheme.shapes.small,
                                 color = when (job.status) {
                                     JobStatus.AVAILABLE -> MaterialTheme.colorScheme.primaryContainer
-                                    JobStatus.ASSIGNED -> MaterialTheme.colorScheme.secondaryContainer
-                                    JobStatus.IN_PROGRESS -> MaterialTheme.colorScheme.tertiaryContainer
+                                    JobStatus.ACCEPTED -> MaterialTheme.colorScheme.secondaryContainer
+                                    JobStatus.PICKED_UP -> MaterialTheme.colorScheme.tertiaryContainer
+                                    JobStatus.IN_STORAGE -> MaterialTheme.colorScheme.surfaceVariant
                                     JobStatus.COMPLETED -> MaterialTheme.colorScheme.surfaceVariant
                                     JobStatus.CANCELLED -> MaterialTheme.colorScheme.errorContainer
                                 }

@@ -208,6 +208,7 @@ export class JobService {
 
     async updateJobStatus(jobId: string, updateData: UpdateJobStatusRequest): Promise<JobResponse> {
         try {
+            logger.info(`updateJobStatus service called for jobId=${jobId} updateData=${JSON.stringify(updateData)}`);
             const updateFields: Partial<Job> = {
                 status: updateData.status,
                 updatedAt: new Date(),
@@ -223,17 +224,44 @@ export class JobService {
                 updateFields
             );
 
+            logger.info(`Job ${jobId} updated: status=${updateFields.status}`);
+
             if (!updatedJob) {
                 throw new Error("Job not found");
+            }
+
+            if (updateData.status === JobStatus.ACCEPTED) {
+                const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
+                logger.debug(`Found job for ACCEPTED flow: ${JSON.stringify(job)}`);
+                // job.orderId may be populated (document) or just an ObjectId
+                const rawOrderId: any = (job as any).orderId?._id ?? (job as any).orderId;
+                logger.info(`Attempting to update linked order status to ACCEPTED for orderId=${rawOrderId}`);
+                try {
+                    const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.ACCEPTED });
+                    logger.info(`Order ${rawOrderId} update result: ${JSON.stringify(orderUpdateResult)}`);
+                } catch (err) {
+                    logger.error(`Failed to update order status to ACCEPTED for orderId=${rawOrderId}:`, err);
+                    throw err;
+                }
             }
 
             // If job is completed, update order status
             if (updateData.status === JobStatus.COMPLETED) {
                 const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
-                if (job.jobType === JobType.STORAGE) {
-                    await orderModel.update(job.orderId, { status: OrderStatus.IN_STORAGE });
-                } else if (job.jobType === JobType.RETURN) {
-                    await orderModel.update(job.orderId, { status: OrderStatus.COMPLETED });
+                logger.debug(`Found job for COMPLETED flow: ${JSON.stringify(job)}`);
+                const rawOrderId: any = (job as any).orderId?._id ?? (job as any).orderId;
+                logger.info(`Attempting to update linked order status after job completion for orderId=${rawOrderId}`);
+                try {
+                    if (job.jobType === JobType.STORAGE) {
+                        const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.IN_STORAGE });
+                        logger.info(`Order ${rawOrderId} update result (IN_STORAGE): ${JSON.stringify(orderUpdateResult)}`);
+                    } else if (job.jobType === JobType.RETURN) {
+                        const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.COMPLETED });
+                        logger.info(`Order ${rawOrderId} update result (COMPLETED): ${JSON.stringify(orderUpdateResult)}`);
+                    }
+                } catch (err) {
+                    logger.error(`Failed to update order status after job completion for orderId=${rawOrderId}:`, err);
+                    throw err;
                 }
             }
 

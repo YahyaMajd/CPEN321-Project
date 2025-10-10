@@ -11,7 +11,7 @@ router.get('/', jobController.getAllJobs.bind(jobController));
 // GET /api/jobs/available - Get available jobs for movers to accept
 router.get('/available', jobController.getAllAvailableJobs.bind(jobController));
 
-// GET /api/jobs/mover - Get jobs assigned to the authenticated mover
+// GET /api/jobs/mover - Get jobs ACCEPTED to the authenticated mover
 router.get('/mover', jobController.getMoverJobs.bind(jobController));
 
 // GET /api/jobs/:id - Get specific job by ID

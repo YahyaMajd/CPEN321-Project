@@ -33,9 +33,10 @@ export type CreateJobRequest = z.infer<typeof jobSchema>;
 // ------------------------------------------------------------
 // Job status shows if a job is available for movers to pick or already taken
 export enum JobStatus {
-    AVAILABLE = "AVAILABLE",
-    ASSIGNED = "ASSIGNED",
-    IN_PROGRESS = "IN_PROGRESS",
+    AVAILABLE = "AVAILABLE", // Equivalent to PENDING in OrderStatus
+    ACCEPTED = "ACCEPTED",
+    PICKED_UP = "PICKED_UP",
+    IN_STORAGE = "IN_STORAGE",
     COMPLETED = "COMPLETED",
     CANCELLED = "CANCELLED",
 }

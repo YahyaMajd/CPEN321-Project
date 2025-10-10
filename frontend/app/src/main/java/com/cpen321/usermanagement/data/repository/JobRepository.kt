@@ -79,7 +79,7 @@ class JobRepository @Inject constructor(
         return try {
             val response = jobApiService.updateJobStatus(
                 jobId,
-                UpdateJobStatusRequest(status = DtoJobStatus.ASSIGNED.value)
+                UpdateJobStatusRequest(status = DtoJobStatus.ACCEPTED.value)
             )
             
             if (response.isSuccessful) {
