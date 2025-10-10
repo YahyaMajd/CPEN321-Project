@@ -37,6 +37,14 @@ class OrderViewModel @Inject constructor(
     val uiState: StateFlow<OrderUiState> = _uiState.asStateFlow()
     private val _isSubmitting = MutableStateFlow(false)
 
+    // Active order state exposed to UI
+    private val _activeOrder = MutableStateFlow<Order?>(null)
+    val activeOrder: StateFlow<Order?> = _activeOrder.asStateFlow()
+
+    // All orders list for management screens
+    private val _orders = MutableStateFlow<List<Order>>(emptyList())
+    val orders: StateFlow<List<Order>> = _orders.asStateFlow()
+
     suspend fun submitOrder(orderRequest: OrderRequest): Result<Order> {
         _isSubmitting.value = true
         return try {
@@ -64,6 +72,32 @@ class OrderViewModel @Inject constructor(
 
     suspend fun getActiveOrder() : Order? {
         return repository.getActiveOrder()
+    }
+
+    /**
+     * Non-suspending refresh helpers the UI can call. These launch coroutines
+     * internally and update StateFlows that the composables observe.
+     */
+    fun refreshActiveOrder() {
+        viewModelScope.launch {
+            try {
+                val o = repository.getActiveOrder()
+                _activeOrder.value = o
+            } catch (_: Exception) {
+                // ignore or surface as needed
+            }
+        }
+    }
+
+    fun refreshAllOrders() {
+        viewModelScope.launch {
+            try {
+                val list = repository.getAllOrders()
+                _orders.value = list ?: emptyList()
+            } catch (_: Exception) {
+                // ignore or surface as needed
+            }
+        }
     }
 
     fun startManaging(order: Order) {

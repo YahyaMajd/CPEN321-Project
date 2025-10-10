@@ -8,6 +8,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.cpen321.usermanagement.data.local.models.Order
@@ -27,6 +30,7 @@ import com.cpen321.usermanagement.ui.components.MessageSnackbarState
 import com.cpen321.usermanagement.ui.viewmodels.ProfileUiState
 import com.cpen321.usermanagement.ui.viewmodels.ProfileViewModel
 import kotlinx.coroutines.delay
+import com.cpen321.usermanagement.di.SocketClientEntryPoint
 
 private data class ManageOrdersScreenData(
     val orders: List<Order>,
@@ -51,6 +55,7 @@ fun ManageOrdersScreen(
     val snackBarHostState = remember { SnackbarHostState() }
      // Local state to hold orders
     var orders by remember { mutableStateOf<List<Order>>(emptyList()) }
+    val appCtx = LocalContext.current.applicationContext
     
     // Trigger to force refresh after order operations
     var refreshTrigger by remember { mutableStateOf(0) }
@@ -58,19 +63,28 @@ fun ManageOrdersScreen(
     //orderUI state collection
     val orderUi by orderViewModel.uiState.collectAsState()
 
-    // Load all orders on launch and refresh periodically
-    // Also refresh when refreshTrigger changes (after cancellation)
-    LaunchedEffect(refreshTrigger) {
-        //TODO: replace with socket logic
-        orderViewModel.getAllOrders()?.let { fetchedOrders ->
-                orders = fetchedOrders
-            }
+    // Subscribe to socket events and refresh orders on open and when refreshTrigger changes
+    // Observe orders from ViewModel
+    val ordersState by orderViewModel.orders.collectAsState()
 
+    LaunchedEffect(refreshTrigger) {
+        // initial load on open (or reload when refreshTrigger increments)
+        orderViewModel.refreshAllOrders()
+
+        // obtain SocketClient via Hilt EntryPoint
+        val entry = EntryPointAccessors.fromApplication(appCtx, SocketClientEntryPoint::class.java)
+        val socketClient = entry.socketClient()
+
+        socketClient.events.collect { ev ->
+            if (ev.name == "order.created" || ev.name == "order.updated") {
+                orderViewModel.refreshAllOrders()
+            }
+        }
     }
 
     ManageOrdersContent(
         data = ManageOrdersScreenData(
-            orders = orders,
+            orders = ordersState,
             uiState = uiState,
             snackBarHostState = snackBarHostState,
             onSuccessMessageShown = profileViewModel::clearSuccessMessage,

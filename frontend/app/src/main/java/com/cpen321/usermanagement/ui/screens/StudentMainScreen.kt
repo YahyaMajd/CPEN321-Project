@@ -56,9 +56,7 @@ import androidx.collection.orderedScatterSetOf
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
+import com.cpen321.usermanagement.di.SocketClientEntryPoint
 import androidx.compose.ui.platform.LocalContext
 
 @Composable
@@ -68,8 +66,8 @@ fun StudentMainScreen(
     onProfileClick: () -> Unit
 ) {
     val uiState by mainViewModel.uiState.collectAsState()
-   // val activeOrder by orderViewModel.activeOrder.collectAsState() // Watch active order
-    var activeOrder by remember { mutableStateOf(null as Order?) }
+    // Observe active order from ViewModel
+    val activeOrder by orderViewModel.activeOrder.collectAsState()
     val snackBarHostState = remember { SnackbarHostState() }
     val appCtx = LocalContext.current.applicationContext
 
@@ -77,7 +75,7 @@ fun StudentMainScreen(
 
     LaunchedEffect(Unit) {
         // initial load
-        orderViewModel.getActiveOrder()?.let { activeOrder = it }
+        orderViewModel.refreshActiveOrder()
         // obtain singleton SocketClient from Hilt via a top-level entry point
         val entry = EntryPointAccessors.fromApplication(appCtx, SocketClientEntryPoint::class.java)
         val socketClient = entry.socketClient()
@@ -85,7 +83,7 @@ fun StudentMainScreen(
         // collect socket events and refresh active order when an order is created/updated
         socketClient.events.collect { ev ->
             if (ev.name == "order.created" || ev.name == "order.updated") {
-                orderViewModel.getActiveOrder()?.let { activeOrder = it }
+                orderViewModel.refreshActiveOrder()
             }
         }
     }
@@ -100,11 +98,7 @@ fun StudentMainScreen(
     )
 }
 
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface SocketClientEntryPoint {
-    fun socketClient(): com.cpen321.usermanagement.network.SocketClient
-}
+// use shared SocketClientEntryPoint in com.cpen321.usermanagement.di
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
