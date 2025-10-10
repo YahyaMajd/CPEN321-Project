@@ -51,6 +51,7 @@ object NavRoutes {
 
     const val MANAGE_ORDERS = "manage_orders"
     const val PROFILE_COMPLETION = "profile_completion"
+    const val AVAILABLE_JOBS = "mover/available_jobs"
 }
 
 @Composable
@@ -177,7 +178,7 @@ private fun handleNavigationEvent(
         }
 
         is NavigationEvent.NavigateToMoverMain -> {
-            navController.navigate(Screen.MoverMain.route) {
+            navController.navigate(NavRoutes.MOVER) {
                 popUpTo(0) { inclusive = true }
             }
             navigationStateManager.clearNavigationEvent()
@@ -298,14 +299,14 @@ private fun AppNavHost(
                 )
         }
 
-        composable(Screen.MoverMain.route) {
+        composable(NavRoutes.MOVER) {
             MoverMainScreen(
                 mainViewModel = mainViewModel,
                 onProfileClick = { navigationStateManager.navigateToProfile() }
             )
         }
 
-        composable(Screen.AvailableJobs.route) {
+        composable(NavRoutes.AVAILABLE_JOBS) {
             AvailableJobsScreen(
                 onJobDetails = { job ->
                     navController.navigate("${Screen.JobDetails.route}/${job.id}")
