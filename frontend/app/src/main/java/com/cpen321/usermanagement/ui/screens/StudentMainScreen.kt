@@ -15,6 +15,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -25,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,7 +52,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.collection.orderedScatterSetOf
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +59,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import com.cpen321.usermanagement.di.SocketClientEntryPoint
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 @Composable
 fun StudentMainScreen(
@@ -81,9 +84,44 @@ fun StudentMainScreen(
         val socketClient = entry.socketClient()
 
         // collect socket events and refresh active order when an order is created/updated
+        // also show notifications for job status updates
         socketClient.events.collect { ev ->
-            if (ev.name == "order.created" || ev.name == "order.updated") {
-                orderViewModel.refreshActiveOrder()
+            when (ev.name) {
+                "order.created", "order.updated" -> {
+                    orderViewModel.refreshActiveOrder()
+                }
+                "job.updated" -> {
+                    val jobData = ev.payload?.optJSONObject("job")
+                    val status = jobData?.optString("status")
+                    val jobType = jobData?.optString("jobType")
+                    
+                    val message = when (status) {
+                        "PICKED_UP" -> {
+                            when (jobType) {
+                                "STORAGE" -> "Mover has arrived at your location and picked up your items!"
+                                "RETURN" -> "Mover has arrived at the storage facility and picked up your items!"
+                                else -> "Mover has arrived at the pickup location!"
+                            }
+                        }
+                        "COMPLETED" -> {
+                            when (jobType) {
+                                "STORAGE" -> "Your items have been delivered to the storage facility!"
+                                "RETURN" -> "Your items have been returned to you!"
+                                else -> "Job completed successfully!"
+                            }
+                        }
+                        else -> null
+                    }
+                    
+                    message?.let {
+                        launch {
+                            snackBarHostState.showSnackbar(
+                                message = it,
+                                duration = SnackbarDuration.Long
+                            )
+                        }
+                    }
+                }
             }
         }
     }
