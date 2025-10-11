@@ -123,6 +123,22 @@ class JobViewModel @Inject constructor(
         }
     }
     
+    fun updateJobStatus(jobId: String, newStatus: com.cpen321.usermanagement.data.local.models.JobStatus) {
+        viewModelScope.launch {
+            when (val result = jobRepository.updateJobStatus(jobId, newStatus)) {
+                is Resource.Success -> {
+                    // Refresh jobs after status update
+                    loadMoverJobs()
+                    loadAvailableJobs()
+                }
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(error = result.message)
+                }
+                is Resource.Loading -> { /* Handle if needed */ }
+            }
+        }
+    }
+    
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }

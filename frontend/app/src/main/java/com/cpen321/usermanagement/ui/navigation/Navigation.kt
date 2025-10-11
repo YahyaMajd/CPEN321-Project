@@ -302,7 +302,10 @@ private fun AppNavHost(
         composable(NavRoutes.MOVER) {
             MoverMainScreen(
                 mainViewModel = mainViewModel,
-                onProfileClick = { navigationStateManager.navigateToProfile() }
+                onProfileClick = { navigationStateManager.navigateToProfile() },
+                onJobDetails = { jobId ->
+                    navController.navigate("${Screen.JobDetails.route}/${jobId}")
+                }
             )
         }
 

@@ -1,15 +1,26 @@
 package com.cpen321.usermanagement.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.cpen321.usermanagement.data.local.models.Job
 import com.cpen321.usermanagement.data.local.models.JobStatus
+import com.cpen321.usermanagement.data.local.models.JobType
 import com.cpen321.usermanagement.ui.viewmodels.JobViewModel
 import java.time.format.DateTimeFormatter
 
@@ -22,6 +33,12 @@ fun JobDetailsScreen(
     viewModel: JobViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    
+    // Load mover jobs when screen opens to ensure we have the job data
+    LaunchedEffect(Unit) {
+        viewModel.loadMoverJobs()
+        viewModel.loadAvailableJobs()
+    }
     
     // Find the job from available or mover jobs
     val job = remember(uiState.availableJobs, uiState.moverJobs, jobId) {
@@ -54,175 +71,268 @@ fun JobDetailsScreen(
                 Text("Job not found")
             }
         } else {
+            JobDetailsContent(
+                job = job,
+                onUpdateStatus = { newStatus ->
+                    viewModel.updateJobStatus(job.id, newStatus)
+                },
+                modifier = modifier.padding(paddingValues)
+            )
+        }
+    }
+}
+
+@Composable
+private fun JobDetailsContent(
+    job: Job,
+    onUpdateStatus: (JobStatus) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        // Job header
+        ElevatedCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        ) {
             Column(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.padding(16.dp)
             ) {
-                // Job Type and Status
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "${job.jobType.value} Job",
-                                style = MaterialTheme.typography.headlineSmall
-                            )
-                            Surface(
-                                shape = MaterialTheme.shapes.small,
-                                color = when (job.status) {
-                                    JobStatus.AVAILABLE -> MaterialTheme.colorScheme.primaryContainer
-                                    JobStatus.ACCEPTED -> MaterialTheme.colorScheme.secondaryContainer
-                                    JobStatus.PICKED_UP -> MaterialTheme.colorScheme.tertiaryContainer
-                                    JobStatus.IN_STORAGE -> MaterialTheme.colorScheme.surfaceVariant
-                                    JobStatus.COMPLETED -> MaterialTheme.colorScheme.surfaceVariant
-                                    JobStatus.CANCELLED -> MaterialTheme.colorScheme.errorContainer
-                                }
-                            ) {
-                                Text(
-                                    text = job.status.value,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.labelMedium
-                                )
-                            }
-                        }
+                Text(
+                    text = "${job.jobType.value} Job",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Text(
+                    text = "Status: ${job.status.value}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = when (job.status) {
+                        JobStatus.ACCEPTED -> MaterialTheme.colorScheme.primary
+                        JobStatus.PICKED_UP -> MaterialTheme.colorScheme.tertiary
+                        JobStatus.COMPLETED -> MaterialTheme.colorScheme.secondary
+                        else -> MaterialTheme.colorScheme.onSurface
+                    },
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+        
+        // Job information
+        ElevatedCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "Job Information",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                
+                JobInfoRow(
+                    icon = Icons.Default.MonetizationOn,
+                    label = "Payment",
+                    value = "$${job.price}"
+                )
+                
+                JobInfoRow(
+                    icon = Icons.Default.Inventory,
+                    label = "Volume",
+                    value = "${job.volume} m³"
+                )
+                
+                JobInfoRow(
+                    icon = Icons.Default.AccessTime,
+                    label = "Scheduled",
+                    value = job.scheduledTime.format(DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a"))
+                )
+            }
+        }
+        
+        // Location information
+        ElevatedCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "Locations",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                
+                // Pickup location
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
                         Text(
-                            text = "Job ID: ${job.id}",
+                            text = "Pickup Location",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = job.pickupAddress.formattedAddress,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-
-                // Price and Volume
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Dropoff location
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.secondary
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
                         Text(
-                            text = "Job Information",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Payment",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "$${String.format("%.2f", job.price)}",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = "Volume",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "${String.format("%.1f", job.volume)} m³",
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Addresses
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "Locations",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "Pickup",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = job.pickupAddress.formattedAddress,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                        
-                        Divider()
-                        
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "Drop-off",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = job.dropoffAddress.formattedAddress,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    }
-                }
-
-                // Scheduled Time
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "Scheduled Time",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = job.scheduledTime.format(
-                                DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy")
-                            ),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = job.scheduledTime.format(
-                                DateTimeFormatter.ofPattern("hh:mm a")
-                            ),
+                            text = "Dropoff Location",
                             style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = job.dropoffAddress.formattedAddress,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Action Buttons
-                if (job.status == JobStatus.AVAILABLE) {
-                    Button(
-                        onClick = { 
-                            viewModel.acceptJob(job.id)
-                            onNavigateBack()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(16.dp)
-                    ) {
-                        Text("Accept This Job")
-                    }
-                }
             }
         }
+        
+        // Action buttons based on job status
+        when (job.status) {
+            JobStatus.ACCEPTED -> {
+                val nextLocation = if (job.jobType == JobType.STORAGE) {
+                    "student's location"
+                } else {
+                    "storage facility"
+                }
+                
+                Button(
+                    onClick = { onUpdateStatus(JobStatus.PICKED_UP) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Arrived at $nextLocation")
+                }
+            }
+            
+            JobStatus.PICKED_UP -> {
+                val nextLocation = if (job.jobType == JobType.STORAGE) {
+                    "storage facility"
+                } else {
+                    "student's location"
+                }
+                
+                Button(
+                    onClick = { onUpdateStatus(JobStatus.COMPLETED) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Completed delivery to $nextLocation")
+                }
+            }
+            
+            JobStatus.COMPLETED -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Text(
+                        text = "Job Completed",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+            
+            else -> {
+                // No action needed for other statuses
+            }
+        }
+    }
+}
+
+@Composable
+private fun JobInfoRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

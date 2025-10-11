@@ -91,4 +91,30 @@ class JobRepository @Inject constructor(
             Resource.Error(e.message ?: "Unknown error occurred")
         }
     }
+    
+    suspend fun updateJobStatus(jobId: String, newStatus: JobStatus): Resource<Unit> {
+        return try {
+            val dtoStatus = when (newStatus) {
+                JobStatus.AVAILABLE -> DtoJobStatus.AVAILABLE
+                JobStatus.ACCEPTED -> DtoJobStatus.ACCEPTED
+                JobStatus.PICKED_UP -> DtoJobStatus.PICKED_UP
+                JobStatus.COMPLETED -> DtoJobStatus.COMPLETED
+                JobStatus.CANCELLED -> DtoJobStatus.CANCELLED
+                JobStatus.IN_STORAGE -> DtoJobStatus.PICKED_UP // Map IN_STORAGE to PICKED_UP for backend
+            }
+            
+            val response = jobApiService.updateJobStatus(
+                jobId,
+                UpdateJobStatusRequest(status = dtoStatus.value)
+            )
+            
+            if (response.isSuccessful) {
+                Resource.Success(Unit)
+            } else {
+                Resource.Error("Failed to update job status")
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Unknown error occurred")
+        }
+    }
 }

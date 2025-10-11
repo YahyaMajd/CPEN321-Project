@@ -37,6 +37,7 @@ enum class MoverScreen {
 fun MoverMainScreen(
     mainViewModel: MainViewModel,
     onProfileClick: () -> Unit,
+    onJobDetails: (String) -> Unit = {},
     jobViewModel: JobViewModel = hiltViewModel()
 ) {
     val mainUiState by mainViewModel.uiState.collectAsState()
@@ -64,7 +65,7 @@ fun MoverMainScreen(
         snackBarHostState = snackBarHostState,
         onProfileClick = onProfileClick,
         onSuccessMessageShown = mainViewModel::clearSuccessMessage,
-        onJobDetails = { /* TODO: Navigate to job details if needed */ },
+        onJobDetails = { job -> onJobDetails(job.id) },
         onRefresh = {
             jobViewModel.loadMoverJobs()
             jobViewModel.loadAvailableJobs()
