@@ -22,6 +22,8 @@ import com.cpen321.usermanagement.data.local.models.Job
 import com.cpen321.usermanagement.data.local.models.JobStatus
 import com.cpen321.usermanagement.data.local.models.JobType
 import com.cpen321.usermanagement.ui.viewmodels.JobViewModel
+import com.cpen321.usermanagement.ui.components.OrderMapView
+import com.cpen321.usermanagement.data.remote.dto.Address
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -121,6 +123,41 @@ private fun JobDetailsContent(
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+            }
+        }
+        
+        // Current destination map
+        if (job.status == JobStatus.ACCEPTED || job.status == JobStatus.PICKED_UP) {
+            val (currentLocation, locationTitle) = getCurrentDestination(job)
+            
+            ElevatedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = locationTitle,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    
+                    OrderMapView(
+                        address = currentLocation.formattedAddress,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = currentLocation.formattedAddress,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         
@@ -334,5 +371,29 @@ private fun JobInfoRow(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium
         )
+    }
+}
+
+/**
+ * Determines the current destination location based on job type and status
+ * STORAGE: ACCEPTED -> student location, PICKED_UP -> storage facility
+ * RETURN: ACCEPTED -> storage facility, PICKED_UP -> student location
+ */
+private fun getCurrentDestination(job: Job): Pair<Address, String> {
+    return when (job.jobType) {
+        JobType.STORAGE -> {
+            when (job.status) {
+                JobStatus.ACCEPTED -> Pair(job.pickupAddress, "Navigate to Student Location")
+                JobStatus.PICKED_UP -> Pair(job.dropoffAddress, "Navigate to Storage Facility")
+                else -> Pair(job.pickupAddress, "Current Destination")
+            }
+        }
+        JobType.RETURN -> {
+            when (job.status) {
+                JobStatus.ACCEPTED -> Pair(job.pickupAddress, "Navigate to Storage Facility")
+                JobStatus.PICKED_UP -> Pair(job.dropoffAddress, "Navigate to Student Location")
+                else -> Pair(job.pickupAddress, "Current Destination")
+            }
+        }
     }
 }
