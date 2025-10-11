@@ -17,7 +17,6 @@ fun CurrentJobCard(
     modifier: Modifier = Modifier
 ) {
     ElevatedCard(
-        onClick = onDetailsClick,
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
@@ -47,6 +46,15 @@ fun CurrentJobCard(
                 text = "Status: ${job.status.value}",
                 style = MaterialTheme.typography.bodySmall
             )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(onClick = onDetailsClick) {
+                    Text("Manage Job")
+                }
+            }
         }
     }
 }
