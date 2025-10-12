@@ -139,10 +139,18 @@ private fun ActiveOrderContent(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Map showing pickup location
+        // Map showing relevant location based on order status
         if (activeOrder != null) {
+            // Show warehouse location when items are in storage, otherwise show pickup location
+            val (displayAddress, markerTitle) = if (activeOrder.status == com.cpen321.usermanagement.data.local.models.OrderStatus.IN_STORAGE) {
+                Pair(activeOrder.warehouseAddress.formattedAddress, "Storage Location")
+            } else {
+                Pair(activeOrder.studentAddress.formattedAddress, "Pickup Location")
+            }
+            
             OrderMapView(
-                address = activeOrder.studentAddress.formattedAddress,
+                address = displayAddress,
+                markerTitle = markerTitle,
                 modifier = Modifier.fillMaxWidth()
             )
             

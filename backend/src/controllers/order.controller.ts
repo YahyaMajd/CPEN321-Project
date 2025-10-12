@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { OrderService } from '../services/order.service';
-import { CreateOrderRequest, CreateOrderResponse, QuoteRequest, GetQuoteResponse, GetAllOrdersResponse, CancelOrderResponse, Order } from '../types/order.types';
+import { CreateOrderRequest, CreateOrderResponse, QuoteRequest, GetQuoteResponse, GetAllOrdersResponse, CancelOrderResponse, Order, CreateReturnJobResponse } from '../types/order.types';
 import mongoose, { mongo, ObjectId } from "mongoose";
 import logger from '../utils/logger.util';
 
@@ -16,7 +16,7 @@ export class OrderController {
         }     
     }
 
-    async createOrder(req: Request<{}, {}, CreateOrderRequest>, res: Response<CreateOrderResponse>, next: NextFunction) {
+    async createOrder(req: Request, res: Response<CreateOrderResponse>, next: NextFunction) {
         try {
             // Pass idempotency key from header (if present) into the request body for service handling
             const idempotencyKey = req.header('Idempotency-Key') || undefined;
@@ -25,6 +25,18 @@ export class OrderController {
             res.status(201).json(result);
         } catch (error) {            
             // TODo: improve error handling
+            next(error);
+        }
+    }
+
+    async createReturnJob(req: Request, res: Response<CreateReturnJobResponse>, next: NextFunction) {
+        try {
+            // Use authenticated user id from req.user (set by auth middleware)
+            const studentId = req.user?._id;
+            const result = await this.orderService.createReturnJob(studentId as ObjectId | undefined);
+            res.status(201).json(result);
+        } catch (error) {
+            // TODO: improve error handling
             next(error);
         }
     }

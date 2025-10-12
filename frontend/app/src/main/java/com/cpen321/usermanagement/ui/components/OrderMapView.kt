@@ -19,7 +19,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun OrderMapView(
     address: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    markerTitle: String = "Pickup Location"
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -79,7 +80,7 @@ fun OrderMapView(
                     ) {
                         Marker(
                             state = MarkerState(position = mapLocation!!),
-                            title = "Pickup Location",
+                            title = markerTitle,
                             snippet = address
                         )
                     }

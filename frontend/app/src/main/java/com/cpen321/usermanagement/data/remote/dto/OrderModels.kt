@@ -27,6 +27,11 @@ data class CancelOrderResponse(
     val message: String
 )
 
+data class CreateReturnJobResponse(
+    val success: Boolean,
+    val message: String
+)
+
 // OrderDto.kt
 data class OrderDto(
     val studentId: String,

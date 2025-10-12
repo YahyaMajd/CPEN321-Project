@@ -16,10 +16,14 @@ router.post(
 
 router.post(
     '/',
-    validateBody<CreateOrderRequest>(createOrderSchema),
     (req, res, next) => orderController.createOrder(req, res, next)
 );
 
+router.post(
+    '/create-return-Job',
+    // This endpoint uses the authenticated user (req.user) to create a return job
+    (req, res, next) => orderController.createReturnJob(req, res, next)
+);
 router.get(
     '/all-orders',    // No need for studentId in URL since we get it from auth
     (req, res, next) => orderController.getAllOrders(req, res, next)
@@ -34,11 +38,7 @@ router.delete('/cancel-order',
     (req, res, next) => orderController.cancelOrder(req, res, next)
 );
 
-// IMPLEMENTATION PENDING IN CONTROLLER AND SERVICE
-// router.put(
-//     '/:orderId/status',
-//     (req, res, next) => orderController.updateOrderStatus(req, res, next)
-// );
+
 
 export default router;
 

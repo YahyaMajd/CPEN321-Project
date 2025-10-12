@@ -14,14 +14,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -31,17 +36,18 @@ import com.cpen321.usermanagement.data.local.models.Order
 import com.cpen321.usermanagement.data.local.models.OrderStatus
 import com.cpen321.usermanagement.data.local.models.displayText
 import com.cpen321.usermanagement.data.local.models.Address
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
+// java.time imports removed (unused)
 
 @Composable
 fun StatusPanel(
-    activeOrder: Order?
+    activeOrder: Order?,
+    onCreateReturnJob: () -> Unit = {}
 ) {
     if (activeOrder != null) {
         // Show status when there's an active order
         ActiveOrderStatusContent(
-            order = activeOrder
+            order = activeOrder,
+            onCreateReturnJob = onCreateReturnJob
         )
     } else {
         // Hidden placeholder when no active order
@@ -53,6 +59,7 @@ fun StatusPanel(
 @Composable
 private fun ActiveOrderStatusContent(
     order: Order,
+    onCreateReturnJob: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -121,6 +128,15 @@ private fun ActiveOrderStatusContent(
                 value = order.studentAddress.formattedAddress
             )
             
+            // Show warehouse/storage location when order is in storage
+            if (order.status == OrderStatus.IN_STORAGE) {
+                StatusDetailRow(
+                    icon = Icons.Default.LocationOn,
+                    label = "Storage Location",
+                    value = order.warehouseAddress.formattedAddress
+                )
+            }
+            
             // Volume info
             StatusDetailRow(
                 icon = Icons.Default.Info,
@@ -146,6 +162,31 @@ private fun ActiveOrderStatusContent(
                 label ="Return Date",
                 value = "${TimeUtils.formatPickupTime(order.returnTime)}"
             )
+            
+            // If order is in storage, allow creating a return job
+            // Hide the button immediately after it's clicked (UI-only guard)
+            var didClickCreateReturnJob by remember { mutableStateOf(false) }
+
+            // Reset the clicked flag when order identity or status changes
+            LaunchedEffect(order.id, order.status) {
+                didClickCreateReturnJob = false
+            }
+
+            if (order.status == OrderStatus.IN_STORAGE && !didClickCreateReturnJob) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(onClick = {
+                        // hide the button immediately
+                        didClickCreateReturnJob = true
+                        // still invoke the provided callback to perform the action
+                        onCreateReturnJob()
+                    }) {
+                        Text("Create Return Job")
+                    }
+                }
+            }
         }
     }
 }

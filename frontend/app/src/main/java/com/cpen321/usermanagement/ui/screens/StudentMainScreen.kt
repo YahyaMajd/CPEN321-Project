@@ -169,7 +169,26 @@ private fun MainContent(
         MainBody(
             paddingValues = paddingValues,
             activeOrder = activeOrder,
-            onCreateOrderClick = { showCreateOrderSheet = true }
+            onCreateOrderClick = { showCreateOrderSheet = true },
+            onCreateReturnJobClick = {
+                // Launch the createReturnJob flow and show feedback
+                coroutineScope.launch {
+                    orderViewModel.createReturnJob { err ->
+                        if (err == null) {
+                            // Refresh active order and notify user
+                            orderViewModel.refreshActiveOrder()
+                            coroutineScope.launch {
+                                snackBarHostState.showSnackbar("Return job created", duration = SnackbarDuration.Short)
+                            }
+
+                        } else {
+                            coroutineScope.launch {
+                                snackBarHostState.showSnackbar("Failed to create return job: ${err.message}", duration = SnackbarDuration.Long)
+                            }
+                        }
+                    }
+                }
+            }
         )
     }
     
@@ -290,6 +309,7 @@ private fun MainBody(
     paddingValues: PaddingValues,
     activeOrder: com.cpen321.usermanagement.data.local.models.Order?,
     onCreateOrderClick: () -> Unit,
+    onCreateReturnJobClick: ()-> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -308,7 +328,8 @@ private fun MainBody(
         
         // Status Panel (Hidden when no active order)
         StatusPanel(
-            activeOrder = activeOrder // Pass the actual order data!
+            activeOrder = activeOrder, // Pass the actual order data
+            onCreateReturnJob = onCreateReturnJobClick
         )
     }
 }

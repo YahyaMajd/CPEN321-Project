@@ -132,6 +132,17 @@ class OrderViewModel @Inject constructor(
         }
     }
 
+    fun createReturnJob(onDone: (Throwable?) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                repository.createReturnJob()   // suspend
+                // Update UI state if needed
+                onDone(null)
+            } catch (t: Throwable) {
+                onDone(t)
+            }
+        }
+    }
     // Optionally expose a public method to manually refresh
     // fun refreshActiveOrder() {
     //     if (isFetching.getAndSet(true)) return

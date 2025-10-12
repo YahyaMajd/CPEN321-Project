@@ -194,6 +194,12 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun createReturnJob(){
+        val response =  orderApi.createReturnJob()
+        if (!response.isSuccessful) {
+            throw Exception("Failed to create return job: ${response.code()} ${response.message()}")
+        }
+    }
     /**
      * Complete order (move from active to history only)
      */

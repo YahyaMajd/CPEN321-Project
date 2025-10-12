@@ -44,6 +44,11 @@ export type CreateOrderResponse = Order & {
   id: string;
 }
 
+export type CreateReturnJobResponse = {
+    success: boolean;
+    message: string;
+};
+
 export type GetActiveOrderResponse = Order | null;
 
 export type GetAllOrdersResponse = {
@@ -78,6 +83,7 @@ export const ACTIVE_ORDER_STATUSES = [
 ];
 
 export type Order = {
+    _id: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     moverId?: mongoose.Types.ObjectId;
     status: OrderStatus;

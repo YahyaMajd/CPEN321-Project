@@ -1,11 +1,14 @@
 import mongoose, { mongo, ObjectId } from "mongoose";
 import { orderModel } from "../models/order.model";
+import { jobModel } from "../models/job.model";
 import {WAREHOUSES} from "../constants/warehouses"
-import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CancelOrderResponse, CreateOrderResponse, Order, OrderStatus, GetAllOrdersResponse, ACTIVE_ORDER_STATUSES } from "../types/order.types";
+import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CancelOrderResponse, CreateOrderResponse, CreateReturnJobResponse, Order, OrderStatus, GetAllOrdersResponse, ACTIVE_ORDER_STATUSES } from "../types/order.types";
 import logger from "../utils/logger.util";
 import { emitToRooms } from "../socket";
 import { jobService } from "./job.service";
 import { log } from "console";
+import { JobType, CreateJobRequest, JobStatus } from "../types/job.type";
+import ca from "zod/v4/locales/ca.js";
 
 
 // OrderService Class
@@ -49,7 +52,8 @@ export class OrderService {
                 const byKey = await orderModel.findByIdempotencyKey(idempotencyKey);
                 if (byKey) {
                     return {
-                        id: (byKey as any)._id.toString(),
+                        _id: (byKey as any)._id.toString(), // Response ID as string
+                        id: (byKey as any)._id.toString(), // Order ID as string
                         studentId: (byKey as any).studentId.toString(),
                         moverId: (byKey as any).moverId?.toString(),
                         status: byKey.status,
@@ -98,25 +102,40 @@ export class OrderService {
             try {
                 const createdOrder = await orderModel.create(newOrder);
 
-                await jobService.createJobsForOrder(
-                createdOrder._id.toString(),
-                reqData.studentId,
-                reqData.volume,
-                reqData.totalPrice,
-                reqData.studentAddress,
-                reqData.warehouseAddress,
-                finalReturnAddress,
-                reqData.pickupTime,
-                reqData.returnTime
-                );
+                const storageJobRequest: CreateJobRequest = {
+                    orderId: createdOrder._id.toString(),
+                    studentId: reqData.studentId,
+                    jobType: JobType.STORAGE,
+                    volume: reqData.volume,
+                    price: reqData.totalPrice * 0.6, // 60% for storage/pickup
+                    pickupAddress: reqData.studentAddress,
+                    dropoffAddress: reqData.warehouseAddress,
+                    scheduledTime: reqData.pickupTime,
+                };
+
+                await jobService.createJob(storageJobRequest);
+                
+                // await jobService.createJobsForOrder(
+                // createdOrder._id.toString(),
+                // reqData.studentId,
+                // reqData.volume,
+                // reqData.totalPrice,
+                // reqData.studentAddress,
+                // reqData.warehouseAddress,
+                // finalReturnAddress,
+                // reqData.pickupTime,
+                // reqData.returnTime
+                // );
                 // Emit order.created to the student and order room (do not block the response)
                 try {
                     this.emitOrderCreated(createdOrder, { by: reqData.studentId, ts: new Date().toISOString() });
                 } catch (err) {
                     logger.warn('Failed to emit order.created event:', err);
                 }
+            
                 return {
-                    id: createdOrder._id.toString(),
+                    _id: createdOrder._id,  // Response ID as string
+                    id: createdOrder._id.toString(), // Order ID as string
                     studentId: createdOrder.studentId.toString(),
                     moverId: createdOrder.moverId?.toString(),
                     status: createdOrder.status,
@@ -137,6 +156,7 @@ export class OrderService {
                         if (byKey) {
                             return {
                                 id: (byKey as any)._id.toString(),
+                                _id: (byKey as any)._id.toString(),
                                 studentId: (byKey as any).studentId.toString(),
                                 moverId: (byKey as any).moverId?.toString(),
                                 status: byKey.status,
@@ -162,6 +182,56 @@ export class OrderService {
         } catch (error) {
             logger.error("Error in createOrder service:", error);
             throw new Error("Failed to create order");
+        }
+    }
+
+    async createReturnJob(studentId: ObjectId | undefined): Promise<CreateReturnJobResponse> {
+        try {
+            const activeOrder = await orderModel.findActiveOrder({
+                studentId,
+                status: { $in: ACTIVE_ORDER_STATUSES }
+            });
+
+            if (!activeOrder) {
+                throw new Error("No active order found to create return job for");
+            }
+
+            // Idempotency guard: check if a return job already exists for this order
+            const existingJobs = await jobModel.findByOrderId(activeOrder._id);
+            const hasReturnJob = existingJobs.some(job => 
+                job.jobType === JobType.RETURN && 
+                job.status !== JobStatus.CANCELLED
+            );
+
+            if (hasReturnJob) {
+                logger.info(`Return job already exists for order ${activeOrder._id}`);
+                return {
+                    success: true,
+                    message: "Return job already exists for this order"
+                };
+            }
+
+            const returnJobRequest: CreateJobRequest = {
+                orderId: activeOrder._id.toString(),
+                studentId: activeOrder.studentId.toString(),
+                jobType: JobType.RETURN,
+                volume: activeOrder.volume,
+                price: activeOrder.price * 0.4, // 40% for return delivery
+                pickupAddress: activeOrder.warehouseAddress, // Pick up FROM warehouse
+                dropoffAddress: activeOrder.returnAddress || activeOrder.studentAddress, // Deliver TO return address
+                scheduledTime: activeOrder.returnTime, // Scheduled for return time
+            };
+
+            await jobService.createJob(returnJobRequest);
+            
+            return{
+                success: true,
+                message: "Return job created successfully"
+            }
+
+        } catch (error) {
+            logger.error("Error in createReturnJob service:", error);
+            throw new Error("Failed to create return job");
         }
     }
 
