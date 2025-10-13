@@ -75,6 +75,15 @@ export class JobService {
             if (updatedJob.moverId) {
                 try { emitToRooms([`user:${updatedJob.moverId.toString()}`], 'job.updated', payload, meta); } catch (e) { logger.warn('Failed to emit job.updated to mover', e); }
             }
+
+            // Also broadcast job.updated to all connected sockets as a fallback
+            try {
+                const io = getIo();
+                io.emit('job.updated', payload);
+            } catch (e) {
+                // Not fatal: if io isn't initialized yet or broadcast fails, warn and continue
+                logger.warn('Failed to broadcast job.updated to all sockets', e);
+            }
         } catch (err) {
             logger.warn('Failed to emit job.updated event:', err);
         }
