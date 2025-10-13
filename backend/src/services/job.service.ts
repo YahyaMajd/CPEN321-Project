@@ -15,7 +15,7 @@ import {
     GetMoverJobsResponse
 } from "../types/job.type";
 import { Address, OrderStatus } from "../types/order.types";
-import { emitToRooms } from "../socket";
+import { getIo, emitToRooms } from "../socket";
 import logger from "../utils/logger.util";
 
 export class JobService {
@@ -40,6 +40,17 @@ export class JobService {
             //`user:${createdJob.studentId.toString()}`
 
             try { emitToRooms([`order:${payload.job.orderId}`, `job:${payload.job.id}`], 'job.created', payload, meta); } catch (e) { logger.warn('Failed to emit job.created', e); }
+            // Also broadcast job.created to all connected sockets as a fallback so
+            // clients that don't join the specific rooms (e.g. movers watching a global
+            // feed) still receive the event. Use getIo() safely because socket may
+            // not be initialized in tests or early startup.
+            try {
+                const io = getIo();
+                io.emit('job.created', payload);
+            } catch (e) {
+                // Not fatal: if io isn't initialized yet or broadcast fails, warn and continue
+                logger.warn('Failed to broadcast job.created to all sockets', e);
+            }
         } catch (err) {
             logger.warn('Failed to emit job.created event:', err);
         }
