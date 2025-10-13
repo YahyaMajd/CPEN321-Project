@@ -71,17 +71,35 @@ class SocketClient(
                 // Listen to the order.created event
                 on("order.created") { args ->
                     val payload = args?.firstOrNull() as? org.json.JSONObject
+                    // debug: log forwarding and then emit
+                    try {
+                        Log.d("SocketClient", "Forwarding event order.created payload=${payload?.toString()}")
+                    } catch (_: Throwable) { }
                     scope.launch { _events.emit(SocketEvent("order.created", payload)) }
                 }
 
                 // Also forward job.updated and order.updated if desired
                 on("job.updated") { args ->
                     val payload = args?.firstOrNull() as? org.json.JSONObject
+                    try {
+                        Log.d("SocketClient", "Forwarding event job.updated payload=${payload?.toString()}")
+                    } catch (_: Throwable) { }
                     scope.launch { _events.emit(SocketEvent("job.updated", payload)) }
+                }
+
+                on("job.created") { args ->
+                    val payload = args?.firstOrNull() as? org.json.JSONObject
+                    try {
+                        Log.d("SocketClient", "Forwarding event job.created payload=${payload?.toString()}")
+                    } catch (_: Throwable) { }
+                    scope.launch { _events.emit(SocketEvent("job.created", payload)) }
                 }
 
                 on("order.updated") { args ->
                     val payload = args?.firstOrNull() as? org.json.JSONObject
+                    try {
+                        Log.d("SocketClient", "Forwarding event order.updated payload=${payload?.toString()}")
+                    } catch (_: Throwable) { }
                     scope.launch { _events.emit(SocketEvent("order.updated", payload)) }
                 }
 
@@ -114,4 +132,9 @@ class SocketClient(
         disconnect()
         connect(newToken)
     }
+
+    /**
+     * Diagnostic helper to check whether the socket is currently connected.
+     */
+    fun isConnected(): Boolean = connected.get()
 }

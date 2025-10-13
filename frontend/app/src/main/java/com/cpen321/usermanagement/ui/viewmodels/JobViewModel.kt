@@ -80,32 +80,32 @@ class JobViewModel @Inject constructor(
         }
     }
 
-    init {
-        // Subscribe to socket events and refresh lists when relevant events arrive.
-        viewModelScope.launch {
-            try {
-                socketClient.events.collect { ev ->
-                    when (ev.name) {
-                        "job.updated", "job.created" -> {
-                            // A job changed — refresh available and mover-specific lists
-                            loadAvailableJobs()
-                            loadMoverJobs()
-                        }
-                        "order.updated" -> {
-                            // Orders changing can affect available jobs (cancellations/accepts)
-                            loadAvailableJobs()
-                            loadMoverJobs()
-                        }
-                        else -> {
-                            // ignore other events
-                        }
-                    }
-                }
-            } catch (err: Exception) {
-                // Swallow to avoid crashing ViewModel; logs can be added if needed
-            }
-        }
-    }
+//    init {
+//        // Subscribe to socket events and refresh lists when relevant events arrive.
+//        viewModelScope.launch {
+//            try {
+//                socketClient.events.collect { ev ->
+//                    when (ev.name) {
+//                        "job.updated", "job.created" -> {
+//                            // A job changed — refresh available and mover-specific lists
+//                            loadAvailableJobs()
+//                            loadMoverJobs()
+//                        }
+//                        "order.updated" -> {
+//                            // Orders changing can affect available jobs (cancellations/accepts)
+//                            loadAvailableJobs()
+//                            loadMoverJobs()
+//                        }
+//                        else -> {
+//                            // ignore other events
+//                        }
+//                    }
+//                }
+//            } catch (err: Exception) {
+//                // Swallow to avoid crashing ViewModel; logs can be added if needed
+//            }
+//        }
+//    }
     
     fun acceptJob(jobId: String) {
         viewModelScope.launch {
