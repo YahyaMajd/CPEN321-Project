@@ -1,10 +1,12 @@
 package com.cpen321.usermanagement.ui.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cpen321.usermanagement.data.local.models.Order
 import com.cpen321.usermanagement.data.local.models.OrderRequest
 import com.cpen321.usermanagement.data.repository.OrderRepository
+import com.cpen321.usermanagement.network.SocketClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +18,7 @@ import javax.inject.Inject
  * OrderViewModel
  * - Single source of truth for the current active order and order-related actions
  * - Wraps OrderRepository and exposes StateFlows for the UI to observe
+ * - Listens to socket events for order updates at ViewModel scope (survives navigation)
  */
 data class OrderUiState(
     val isManaging: Boolean = false,
@@ -28,7 +31,8 @@ data class OrderUiState(
 
 @HiltViewModel
 class OrderViewModel @Inject constructor(
-    private val repository: OrderRepository
+    private val repository: OrderRepository,
+    private val socketClient: SocketClient
 ) : ViewModel() {
 
     // UI state
@@ -44,6 +48,26 @@ class OrderViewModel @Inject constructor(
     // All orders list for management screens
     private val _orders = MutableStateFlow<List<Order>>(emptyList())
     val orders: StateFlow<List<Order>> = _orders.asStateFlow()
+
+    init {
+        // Listen for order socket events at ViewModel scope (survives navigation)
+        listenForOrderUpdates()
+    }
+
+    private fun listenForOrderUpdates() {
+        viewModelScope.launch {
+            socketClient.events.collect { event ->
+                when (event.name) {
+                    "order.created", "order.updated" -> {
+                        Log.d("OrderViewModel", "Received ${event.name}, refreshing orders")
+                        // Refresh both active order and all orders list
+                        refreshActiveOrder()
+                        refreshAllOrders()
+                    }
+                }
+            }
+        }
+    }
 
     suspend fun submitOrder(orderRequest: OrderRequest): Result<Order> {
         _isSubmitting.value = true

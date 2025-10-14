@@ -14,6 +14,9 @@ interface JobApiService {
     @GET("jobs/mover")
     suspend fun getMoverJobs(): Response<ApiResponse<JobListResponse>>
     
+    @GET("jobs/student")
+    suspend fun getStudentJobs(): Response<ApiResponse<JobListResponse>>
+    
     @GET("jobs/{id}")
     suspend fun getJobById(@Path("id") jobId: String): Response<ApiResponse<JobResponse>>
     
@@ -22,4 +25,10 @@ interface JobApiService {
         @Path("id") jobId: String,
         @Body request: UpdateJobStatusRequest
     ): Response<ApiResponse<JobResponse>>
+
+    @POST("jobs/{id}/arrived")
+    suspend fun requestPickupConfirmation(@Path("id") jobId: String): Response<ApiResponse<Any>>
+
+    @POST("jobs/{id}/confirm-pickup")
+    suspend fun confirmPickup(@Path("id") jobId: String): Response<ApiResponse<Any>>
 }

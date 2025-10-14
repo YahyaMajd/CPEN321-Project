@@ -26,30 +26,10 @@ fun AvailableJobsScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showOnlyAvailable by remember { mutableStateOf(false) }
 
-    val appCtx = LocalContext.current.applicationContext
-    // Load available jobs when screen is first composed and update on socket updates
+    // Load available jobs when screen is first composed
+    // JobViewModel handles socket events (job.created, job.updated) automatically
     LaunchedEffect(Unit) {
-        // initial load on open
         viewModel.loadAvailableJobs()
-
-        // obtain SocketClient via Hilt EntryPoint
-        val entry = EntryPointAccessors.fromApplication(appCtx, SocketClientEntryPoint::class.java)
-        val socketClient = entry.socketClient()
-
-        // Diagnostic: log initial connection state when the screen starts
-        try {
-            Log.d("AvailableJobsScreen", "initial socket connected=${socketClient.isConnected()}")
-        } catch (_: Throwable) { }
-
-        socketClient.events.collect { ev ->
-            if (ev.name == "job.created" || ev.name == "job.updated") {
-                // Diagnostic log: confirm we received the event and whether socket is connected
-                try {
-                    Log.d("AvailableJobsScreen", "socket event=${ev.name} connected=${socketClient.isConnected()} payload=${ev.payload}")
-                } catch (_: Throwable) { }
-                viewModel.loadAvailableJobs()
-            }
-        }
     }
 
     Column(

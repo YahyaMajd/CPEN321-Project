@@ -51,6 +51,7 @@ data class UpdateJobStatusRequest(
 enum class JobStatus(val value: String) {
     AVAILABLE("AVAILABLE"),
     ACCEPTED("ACCEPTED"),
+    AWAITING_STUDENT_CONFIRMATION("AWAITING_STUDENT_CONFIRMATION"),
     PICKED_UP("PICKED_UP"),
    // IN_STORAGE("IN_STORAGE"),
     COMPLETED("COMPLETED"),

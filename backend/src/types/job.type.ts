@@ -35,6 +35,7 @@ export type CreateJobRequest = z.infer<typeof jobSchema>;
 export enum JobStatus {
     AVAILABLE = "AVAILABLE", // Equivalent to PENDING in OrderStatus
     ACCEPTED = "ACCEPTED",
+    AWAITING_STUDENT_CONFIRMATION = "AWAITING_STUDENT_CONFIRMATION",
     PICKED_UP = "PICKED_UP",
     IN_STORAGE = "IN_STORAGE",
     COMPLETED = "COMPLETED",
@@ -57,6 +58,7 @@ export type Job = {
     scheduledTime: string;
     createdAt: Date;
     updatedAt: Date;
+    verificationRequestedAt?: Date;
 };
 
 export type JobResponse = {

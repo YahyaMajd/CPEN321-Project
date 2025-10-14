@@ -45,6 +45,7 @@ fun MoverMainScreen(
     val snackBarHostState = remember { SnackbarHostState() }
 
     // Load jobs when screen first composes
+    // JobViewModel handles socket events (job.created, job.updated) automatically
     LaunchedEffect(Unit) {
         jobViewModel.loadMoverJobs()
         jobViewModel.loadAvailableJobs()
@@ -53,7 +54,7 @@ fun MoverMainScreen(
     // Filter current jobs (ACCEPTED or in progress)
     val currentJobs = remember(jobUiState.moverJobs) {
         jobUiState.moverJobs.filter { 
-            it.status == JobStatus.ACCEPTED || it.status == JobStatus.PICKED_UP
+            it.status == JobStatus.ACCEPTED || it.status == JobStatus.PICKED_UP || it.status == JobStatus.AWAITING_STUDENT_CONFIRMATION
         }
     }
 

@@ -53,6 +53,18 @@ export class JobController {
         }
     }
 
+    async getStudentJobs(req: Request, res: Response<GetMoverJobsResponse>, next: NextFunction) {
+        try {
+            if (!req.user || !req.user._id) {
+                throw new Error("User not authenticated");
+            }
+            const result = await this.jobService.getStudentJobs(req.user._id.toString());
+            res.status(200).json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
     async getJobById(req: Request<{ id: string }>, res: Response<GetJobResponse>, next: NextFunction) {
         try {
             const result = await this.jobService.getJobById(req.params.id);
@@ -76,6 +88,30 @@ export class JobController {
             res.status(200).json(result);
         } catch (error) {
             logger.error(`Error in updateJobStatus controller for jobId=${req.params.id}:`, error);
+            next(error);
+        }
+    }
+
+    // Mover indicates arrival and requests student confirmation
+    async arrived(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+        try {
+            if (!req.user || !req.user._id) throw new Error('User not authenticated');
+            const moverId = req.user._id.toString();
+            const result = await this.jobService.requestPickupConfirmation(req.params.id, moverId);
+            res.status(200).json({ success: true, message: 'Confirmation requested', data: result });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    // Student confirms mover picked up items
+    async confirmPickup(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+        try {
+            if (!req.user || !req.user._id) throw new Error('User not authenticated');
+            const studentId = req.user._id.toString();
+            const result = await this.jobService.confirmPickup(req.params.id, studentId);
+            res.status(200).json({ success: true, message: 'Pickup confirmed', data: result });
+        } catch (error) {
             next(error);
         }
     }

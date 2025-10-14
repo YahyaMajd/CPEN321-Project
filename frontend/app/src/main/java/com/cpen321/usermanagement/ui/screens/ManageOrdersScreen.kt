@@ -53,32 +53,16 @@ fun ManageOrdersScreen(
 ) {
     val uiState by profileViewModel.uiState.collectAsState()
     val snackBarHostState = remember { SnackbarHostState() }
-     // Local state to hold orders
-    var orders by remember { mutableStateOf<List<Order>>(emptyList()) }
-    val appCtx = LocalContext.current.applicationContext
     
-    // no refreshTrigger needed: we call viewModel.refreshAllOrders() directly
-
     //orderUI state collection
     val orderUi by orderViewModel.uiState.collectAsState()
 
-    // Subscribe to socket events and refresh orders on open and when refreshTrigger changes
-    // Observe orders from ViewModel
+    // Observe orders from ViewModel (OrderViewModel handles socket events automatically)
     val ordersState by orderViewModel.orders.collectAsState()
 
+    // Initial load of orders when screen opens
     LaunchedEffect(Unit) {
-        // initial load on open
         orderViewModel.refreshAllOrders()
-
-        // obtain SocketClient via Hilt EntryPoint
-        val entry = EntryPointAccessors.fromApplication(appCtx, SocketClientEntryPoint::class.java)
-        val socketClient = entry.socketClient()
-
-        socketClient.events.collect { ev ->
-            if (ev.name == "order.created" || ev.name == "order.updated") {
-                orderViewModel.refreshAllOrders()
-            }
-        }
     }
 
     ManageOrdersContent(

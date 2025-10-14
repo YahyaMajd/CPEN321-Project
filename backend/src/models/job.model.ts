@@ -52,6 +52,7 @@ const jobSchema = new Schema(
     pickupAddress: { type: addressSubSchema, required: true },
     dropoffAddress: { type: addressSubSchema, required: true },
     scheduledTime: { type: Date, required: true },
+    verificationRequestedAt: { type: Date, required: false },
   },
   {
     timestamps: true,
@@ -118,6 +119,15 @@ export class JobModel {
     } catch (error) {
       logger.error("Error finding mover jobs:", error);
       throw new Error("Failed to find mover jobs");
+    }
+  }
+
+  async findByStudentId(studentId: mongoose.Types.ObjectId) {
+    try {
+      return await this.job.find({ studentId }).populate('orderId moverId');
+    } catch (error) {
+      logger.error("Error finding student jobs:", error);
+      throw new Error("Failed to find student jobs");
     }
   }
 

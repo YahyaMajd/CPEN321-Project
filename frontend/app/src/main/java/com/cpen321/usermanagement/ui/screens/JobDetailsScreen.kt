@@ -75,6 +75,7 @@ fun JobDetailsScreen(
         } else {
             JobDetailsContent(
                 job = job,
+                viewModel = viewModel,
                 onUpdateStatus = { newStatus ->
                     viewModel.updateJobStatus(job.id, newStatus)
                 },
@@ -87,6 +88,7 @@ fun JobDetailsScreen(
 @Composable
 private fun JobDetailsContent(
     job: Job,
+    viewModel: JobViewModel,
     onUpdateStatus: (JobStatus) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -117,6 +119,7 @@ private fun JobDetailsContent(
                     color = when (job.status) {
                         JobStatus.ACCEPTED -> MaterialTheme.colorScheme.primary
                         JobStatus.PICKED_UP -> MaterialTheme.colorScheme.tertiary
+                        JobStatus.AWAITING_STUDENT_CONFIRMATION -> MaterialTheme.colorScheme.tertiary
                         JobStatus.COMPLETED -> MaterialTheme.colorScheme.secondary
                         else -> MaterialTheme.colorScheme.onSurface
                     },
@@ -127,7 +130,7 @@ private fun JobDetailsContent(
         }
         
         // Current destination map
-        if (job.status == JobStatus.ACCEPTED || job.status == JobStatus.PICKED_UP) {
+        if (job.status == JobStatus.ACCEPTED || job.status == JobStatus.PICKED_UP || job.status == JobStatus.AWAITING_STUDENT_CONFIRMATION) {
             val (currentLocation, locationTitle) = getCurrentDestination(job)
             
             ElevatedCard(
@@ -283,7 +286,15 @@ private fun JobDetailsContent(
                 }
                 
                 Button(
-                    onClick = { onUpdateStatus(JobStatus.PICKED_UP) },
+                    onClick = {
+                        if (job.jobType == JobType.STORAGE) {
+                            // For storage jobs, request student confirmation first
+                            viewModel.requestPickupConfirmation(job.id)
+                        } else {
+                            // For return jobs, mark as picked up directly
+                            onUpdateStatus(JobStatus.PICKED_UP)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
@@ -314,6 +325,23 @@ private fun JobDetailsContent(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Completed delivery to $nextLocation")
+                }
+            }
+    
+            JobStatus.AWAITING_STUDENT_CONFIRMATION -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Text(
+                        text = "Awaiting Student Confirmation",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 }
             }
             
@@ -384,6 +412,7 @@ private fun getCurrentDestination(job: Job): Pair<Address, String> {
         JobType.STORAGE -> {
             when (job.status) {
                 JobStatus.ACCEPTED -> Pair(job.pickupAddress, "Navigate to Student Location")
+                JobStatus.AWAITING_STUDENT_CONFIRMATION -> Pair(job.pickupAddress, "Awaiting Student Confirmation")
                 JobStatus.PICKED_UP -> Pair(job.dropoffAddress, "Navigate to Storage Facility")
                 else -> Pair(job.pickupAddress, "Current Destination")
             }

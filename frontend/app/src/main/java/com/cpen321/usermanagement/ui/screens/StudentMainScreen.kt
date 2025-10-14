@@ -49,12 +49,14 @@ import com.cpen321.usermanagement.ui.viewmodels.OrderViewModel
 import com.cpen321.usermanagement.data.repository.PaymentRepository
 import com.cpen321.usermanagement.data.remote.api.RetrofitClient
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.cpen321.usermanagement.ui.viewmodels.JobViewModel
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.collection.orderedScatterSetOf
 import androidx.compose.runtime.LaunchedEffect
+import android.util.Log
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import com.cpen321.usermanagement.di.SocketClientEntryPoint
@@ -62,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudentMainScreen(
     mainViewModel: MainViewModel,
@@ -69,38 +72,58 @@ fun StudentMainScreen(
     onProfileClick: () -> Unit
 ) {
     val uiState by mainViewModel.uiState.collectAsState()
-    // Observe active order from ViewModel
     val activeOrder by orderViewModel.activeOrder.collectAsState()
     val snackBarHostState = remember { SnackbarHostState() }
     val appCtx = LocalContext.current.applicationContext
+    val jobViewModel: JobViewModel = hiltViewModel()
+    val jobUiState by jobViewModel.uiState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
-    // Subscribe to socket order.created/order.updated events and refresh active order
+    // Observe pending confirmation from JobViewModel (which survives navigation)
+    val pendingConfirmJobId = jobUiState.pendingConfirmationJobId
 
+    // Initial load of active order and check for pending confirmations
+    // (OrderViewModel handles socket events automatically)
     LaunchedEffect(Unit) {
-        // initial load
         orderViewModel.refreshActiveOrder()
-        // obtain singleton SocketClient from Hilt via a top-level entry point
+        // Check if there's already a job awaiting confirmation (in case event was emitted while logged out)
+        jobViewModel.checkForPendingConfirmations()
+    }
+
+    // Subscribe to job socket events for snackbar notifications only
+    // (JobViewModel already handles job.updated for state management)
+    LaunchedEffect(true) {
         val entry = EntryPointAccessors.fromApplication(appCtx, SocketClientEntryPoint::class.java)
         val socketClient = entry.socketClient()
 
-        // collect socket events and refresh active order when an order is created/updated
-        // also show notifications for job status updates
+        // Only collect job events for UI feedback (snackbars)
         socketClient.events.collect { ev ->
             when (ev.name) {
-                "order.created", "order.updated" -> {
-                    orderViewModel.refreshActiveOrder()
-                }
                 "job.updated" -> {
-                    val jobData = ev.payload?.optJSONObject("job")
+                    // Show snackbar notifications for job status changes
+                    val jobData = when {
+                        ev.payload == null -> null
+                        ev.payload.has("job") -> ev.payload.optJSONObject("job")
+                        else -> ev.payload
+                    }
+
                     val status = jobData?.optString("status")
                     val jobType = jobData?.optString("jobType")
-                    
+
                     val message = when (status) {
+                        "AWAITING_STUDENT_CONFIRMATION" -> {
+                            when (jobType) {
+                                "STORAGE" -> "Mover is requesting confirmation that they've picked up your items"
+                                "RETURN" -> "Mover is requesting confirmation that they've picked up items at the storage facility"
+                                else -> "Mover is requesting pickup confirmation"
+                            }
+                        }
+
                         "PICKED_UP" -> {
                             when (jobType) {
-                                "STORAGE" -> "Mover has arrived at your location and picked up your items!"
-                                "RETURN" -> "Mover has arrived at the storage facility and picked up your items!"
-                                else -> "Mover has arrived at the pickup location!"
+                                "STORAGE" -> "Mover has picked up your items"
+                                "RETURN" -> "Mover has picked up items at the storage facility"
+                                else -> "Mover has picked up items"
                             }
                         }
                         "COMPLETED" -> {
@@ -112,7 +135,7 @@ fun StudentMainScreen(
                         }
                         else -> null
                     }
-                    
+
                     message?.let {
                         launch {
                             snackBarHostState.showSnackbar(
@@ -120,6 +143,38 @@ fun StudentMainScreen(
                                 duration = SnackbarDuration.Long
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // Student confirmation modal (composed in UI, driven by JobViewModel state)
+    if (pendingConfirmJobId != null) {
+        val jobId = pendingConfirmJobId!!
+        // show a simple bottom sheet asking student to confirm
+        ModalBottomSheet(
+            onDismissRequest = { jobViewModel.clearPendingConfirmation() },
+            sheetState = rememberModalBottomSheetState()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Confirm pickup", style = MaterialTheme.typography.titleMedium)
+                Text("A mover is requesting confirmation that they've collected your items. Confirm?", style = MaterialTheme.typography.bodyMedium)
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.Button(onClick = {
+                        // Call JobViewModel to confirm pickup (clearPendingConfirmation called automatically on success)
+                        coroutineScope.launch {
+                            jobViewModel.confirmPickup(jobId)
+                        }
+                    }) {
+                        Text("Confirm")
+                    }
+                    androidx.compose.material3.OutlinedButton(onClick = { jobViewModel.clearPendingConfirmation() }) {
+                        Text("Cancel")
                     }
                 }
             }

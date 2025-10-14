@@ -26,6 +26,7 @@ enum class JobType(val value: String) {
 
 enum class JobStatus(val value: String) {
     AVAILABLE("AVAILABLE"),
+    AWAITING_STUDENT_CONFIRMATION("AWAITING_STUDENT_CONFIRMATION"),
     ACCEPTED("ACCEPTED"),
     PICKED_UP("PICKED_UP"),
     IN_STORAGE("IN_STORAGE"),

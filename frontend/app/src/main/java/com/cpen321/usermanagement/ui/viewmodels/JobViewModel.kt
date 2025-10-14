@@ -18,7 +18,8 @@ data class JobUiState(
     val availableJobs: List<Job> = emptyList(),
     val moverJobs: List<Job> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val pendingConfirmationJobId: String? = null // Job awaiting student confirmation
 )
 
 @HiltViewModel
@@ -29,6 +30,93 @@ class JobViewModel @Inject constructor(
     
     private val _uiState = MutableStateFlow(JobUiState())
     val uiState: StateFlow<JobUiState> = _uiState.asStateFlow()
+
+    init {
+        // Start collecting socket events at ViewModel level (survives screen navigation)
+        listenForJobUpdates()
+    }
+
+    /**
+     * Check if there are any jobs awaiting student confirmation
+     * This is called when student logs in or opens the main screen
+     * to catch cases where the event was emitted while they were logged out
+     */
+    fun checkForPendingConfirmations() {
+        viewModelScope.launch {
+            try {
+                // Load student jobs to check for pending confirmations
+                val response = jobRepository.getStudentJobs()
+                response.collect { resource ->
+                    if (resource is Resource.Success) {
+                        val awaitingJob = resource.data?.find { job ->
+                            job.status == com.cpen321.usermanagement.data.local.models.JobStatus.AWAITING_STUDENT_CONFIRMATION &&
+                            job.jobType == com.cpen321.usermanagement.data.local.models.JobType.STORAGE
+                        }
+                        
+                        if (awaitingJob != null) {
+                            android.util.Log.d("JobViewModel", "Found pending confirmation job: ${awaitingJob.id}")
+                            _uiState.value = _uiState.value.copy(pendingConfirmationJobId = awaitingJob.id)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("JobViewModel", "Error checking for pending confirmations", e)
+            }
+        }
+    }
+
+    private fun listenForJobUpdates() {
+        viewModelScope.launch {
+            socketClient.events.collect { event ->
+                when (event.name) {
+                    "job.updated" -> {
+                        handleJobUpdatedEvent(event.payload)
+                        // Refresh job lists to reflect updated job status
+                        loadAvailableJobs()
+                        loadMoverJobs()
+                    }
+                    "job.created" -> {
+                        // New job created, refresh available jobs list
+                        android.util.Log.d("JobViewModel", "New job created, refreshing available jobs")
+                        loadAvailableJobs()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleJobUpdatedEvent(payload: org.json.JSONObject?) {
+        try {
+            // Parse payload to extract job info
+            val jobData = when {
+                payload == null -> null
+                payload.has("job") -> payload.optJSONObject("job")
+                payload.has("data") && payload.optJSONObject("data")?.has("job") == true -> 
+                    payload.optJSONObject("data")?.optJSONObject("job")
+                else -> payload
+            }
+
+            val status = jobData?.optString("status")
+            val jobType = jobData?.optString("jobType")
+            val jobId = jobData?.optString("id")
+
+            // If job is awaiting student confirmation, store it in state
+            if (jobId != null && jobId.isNotBlank() && 
+                status == "AWAITING_STUDENT_CONFIRMATION" && 
+                jobType == "STORAGE") {
+                _uiState.value = _uiState.value.copy(pendingConfirmationJobId = jobId)
+            }
+
+            // Clear pending confirmation when job moves past that state
+            if (jobId != null && status != "AWAITING_STUDENT_CONFIRMATION" && 
+                jobId == _uiState.value.pendingConfirmationJobId) {
+                _uiState.value = _uiState.value.copy(pendingConfirmationJobId = null)
+            }
+        } catch (e: Exception) {
+            // Log but don't crash
+            android.util.Log.e("JobViewModel", "Error handling job.updated event", e)
+        }
+    }
     
     fun loadAvailableJobs() {
         viewModelScope.launch {
@@ -94,6 +182,39 @@ class JobViewModel @Inject constructor(
                 is Resource.Loading -> { /* Handle if needed */ }
             }
         }
+    }
+
+    fun requestPickupConfirmation(jobId: String) {
+        viewModelScope.launch {
+            when (val result = jobRepository.requestPickupConfirmation(jobId)) {
+                is Resource.Success -> {
+                    // wait for socket events to update state
+                }
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(error = result.message)
+                }
+                is Resource.Loading -> { }
+            }
+        }
+    }
+
+    fun confirmPickup(jobId: String) {
+        viewModelScope.launch {
+            when (val result = jobRepository.confirmPickup(jobId)) {
+                is Resource.Success -> {
+                    // Clear the pending confirmation after successful confirm
+                    _uiState.value = _uiState.value.copy(pendingConfirmationJobId = null)
+                }
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(error = result.message)
+                }
+                is Resource.Loading -> { }
+            }
+        }
+    }
+
+    fun clearPendingConfirmation() {
+        _uiState.value = _uiState.value.copy(pendingConfirmationJobId = null)
     }
     
     fun updateJobStatus(jobId: String, newStatus: com.cpen321.usermanagement.data.local.models.JobStatus) {

@@ -75,6 +75,34 @@ class JobRepository @Inject constructor(
         }
     }
     
+    fun getStudentJobs(): Flow<Resource<List<Job>>> = flow {
+        try {
+            emit(Resource.Loading())
+            val response = jobApiService.getStudentJobs()
+            
+            if (response.isSuccessful && response.body() != null) {
+                val jobs = response.body()!!.data?.jobs?.map { dto ->
+                    Job(
+                        id = dto.id,
+                        jobType = JobType.valueOf(dto.jobType),
+                        status = JobStatus.valueOf(dto.status),
+                        volume = dto.volume,
+                        price = dto.price,
+                        pickupAddress = dto.pickupAddress,
+                        dropoffAddress = dto.dropoffAddress,
+                        scheduledTime = LocalDateTime.parse(dto.scheduledTime, DateTimeFormatter.ISO_DATE_TIME)
+                    )
+                } ?: emptyList()
+                
+                emit(Resource.Success(jobs))
+            } else {
+                emit(Resource.Error("Failed to load student jobs"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Unknown error occurred"))
+        }
+    }
+    
     suspend fun acceptJob(jobId: String): Resource<Unit> {
         return try {
             val response = jobApiService.updateJobStatus(
@@ -96,6 +124,7 @@ class JobRepository @Inject constructor(
         return try {
             val dtoStatus = when (newStatus) {
                 JobStatus.AVAILABLE -> DtoJobStatus.AVAILABLE
+                JobStatus.AWAITING_STUDENT_CONFIRMATION -> DtoJobStatus.AWAITING_STUDENT_CONFIRMATION
                 JobStatus.ACCEPTED -> DtoJobStatus.ACCEPTED
                 JobStatus.PICKED_UP -> DtoJobStatus.PICKED_UP
                 JobStatus.COMPLETED -> DtoJobStatus.COMPLETED
@@ -113,6 +142,24 @@ class JobRepository @Inject constructor(
             } else {
                 Resource.Error("Failed to update job status")
             }
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Unknown error occurred")
+        }
+    }
+
+    suspend fun requestPickupConfirmation(jobId: String): Resource<Unit> {
+        return try {
+            val response = jobApiService.requestPickupConfirmation(jobId)
+            if (response.isSuccessful) Resource.Success(Unit) else Resource.Error("Failed to request pickup confirmation")
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Unknown error occurred")
+        }
+    }
+
+    suspend fun confirmPickup(jobId: String): Resource<Unit> {
+        return try {
+            val response = jobApiService.confirmPickup(jobId)
+            if (response.isSuccessful) Resource.Success(Unit) else Resource.Error("Failed to confirm pickup")
         } catch (e: Exception) {
             Resource.Error(e.message ?: "Unknown error occurred")
         }
