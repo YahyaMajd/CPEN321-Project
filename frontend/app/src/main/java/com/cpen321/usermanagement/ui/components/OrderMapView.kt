@@ -25,12 +25,17 @@ fun OrderMapView(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
-    var mapLocation by remember { mutableStateOf<LatLng?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var hasError by remember { mutableStateOf(false) }
+    // Key these states to the address so they reset when address changes
+    var mapLocation by remember(address) { mutableStateOf<LatLng?>(null) }
+    var isLoading by remember(address) { mutableStateOf(true) }
+    var hasError by remember(address) { mutableStateOf(false) }
     
-    // Geocode the address when component loads
+    // Geocode the address when component loads or address changes
     LaunchedEffect(address) {
+        isLoading = true
+        hasError = false
+        mapLocation = null
+        
         coroutineScope.launch {
             try {
                 val location = LocationUtils.geocodeAddress(context, address)
@@ -65,8 +70,19 @@ fun OrderMapView(
                 }
                 
                 mapLocation != null -> {
-                    val cameraPositionState = rememberCameraPositionState {
+                    // Key camera position to address so it resets when location changes
+                    val cameraPositionState = rememberCameraPositionState(key = address) {
                         position = CameraPosition.fromLatLngZoom(mapLocation!!, 15f)
+                    }
+
+                    // Animate camera to new position when location changes
+                    LaunchedEffect(mapLocation) {
+                        mapLocation?.let {
+                            cameraPositionState.animate(
+                                CameraUpdateFactory.newLatLngZoom(it, 15f),
+                                durationMs = 1000
+                            )
+                        }
                     }
                     
                     GoogleMap(

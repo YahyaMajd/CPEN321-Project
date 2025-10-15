@@ -429,6 +429,7 @@ private fun getCurrentDestination(job: Job): Pair<Address, String> {
             when (job.status) {
                 JobStatus.ACCEPTED -> Pair(job.pickupAddress, "Navigate to Storage Facility")
                 JobStatus.PICKED_UP -> Pair(job.dropoffAddress, "Navigate to Student Location")
+                JobStatus.AWAITING_STUDENT_CONFIRMATION -> Pair(job.dropoffAddress, "Awaiting Student Confirmation")
                 else -> Pair(job.pickupAddress, "Current Destination")
             }
         }
