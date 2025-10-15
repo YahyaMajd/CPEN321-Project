@@ -472,8 +472,10 @@ export class JobService {
                             logger.warn('Failed to emit order.updated after IN_STORAGE in JobService:', emitErr);
                         }
                     } else if (job.jobType === JobType.RETURN) {
-                        const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.COMPLETED });
-                        logger.info(`Order ${rawOrderId} update result (COMPLETED): ${JSON.stringify(orderUpdateResult)}`);
+                        // For RETURN jobs, mark order as RETURNED (not COMPLETED yet)
+                        // Student will need to confirm delivery before order is COMPLETED
+                        const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.RETURNED });
+                        logger.info(`Order ${rawOrderId} update result (RETURNED): ${JSON.stringify(orderUpdateResult)}`);
                         try {
                             const meta = { by: updatedJob.moverId?.toString() ?? null, ts: new Date().toISOString() };
                             const orderPayload = {
@@ -497,7 +499,7 @@ export class JobService {
                             };
                             emitToRooms([`user:${orderUpdateResult.studentId.toString()}`, `order:${orderUpdateResult._id.toString()}`], 'order.updated', orderPayload, meta);
                         } catch (emitErr) {
-                            logger.warn('Failed to emit order.updated after COMPLETED in JobService:', emitErr);
+                            logger.warn('Failed to emit order.updated after RETURNED in JobService:', emitErr);
                         }
                     }
                 } catch (err) {
@@ -615,6 +617,98 @@ export class JobService {
             return { id: updatedJob._id.toString(), status: updatedJob.status };
         } catch (err) {
             logger.error('Error in confirmPickup:', err);
+            throw err;
+        }
+    }
+
+    // Mover requests student confirmation when delivered items (return jobs only)
+    async requestDeliveryConfirmation(jobId: string, moverId: string) {
+        try {
+            const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
+            if (!job) throw new Error('Job not found');
+            if (job.jobType !== JobType.RETURN) throw new Error('Delivery confirmation only valid for return jobs');
+            const jobMoverId = (job.moverId as any)?._id?.toString() ?? job.moverId?.toString();
+            if (!jobMoverId || jobMoverId !== moverId) throw new Error('Only assigned mover can request confirmation');
+            if (job.status !== JobStatus.PICKED_UP) throw new Error('Job must be PICKED_UP (since its a return job) to request confirmation');
+
+            const updatedJob = await jobModel.update(job._id, { status: JobStatus.AWAITING_STUDENT_CONFIRMATION, verificationRequestedAt: new Date(), updatedAt: new Date() });
+
+            // Emit job.updated targeted to student and order room
+            try {
+                this.emitJobUpdated(updatedJob, { by: moverId, ts: new Date().toISOString() });
+            } catch (emitErr) {
+                logger.warn('Failed to emit job.updated after requestDeliveryConfirmation:', emitErr);
+            }
+
+            return { id: updatedJob._id.toString(), status: updatedJob.status };
+        } catch (err) {
+            logger.error('Error in requestDeliveryConfirmation:', err);
+            throw err;
+        }
+    }
+
+    // Student confirms the mover delivered the items (moves job to COMPLETED and order to COMPLETED)
+    async confirmDelivery(jobId: string, studentId: string) {
+        try {
+            const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
+            if (!job) throw new Error('Job not found');
+            if (job.jobType !== JobType.RETURN) throw new Error('Confirm delivery only valid for return jobs');
+            
+            // Extract studentId - handle both populated document and ObjectId
+            const jobStudentId = (job.studentId as any)?._id?.toString() ?? job.studentId?.toString();
+            logger.info(`confirmDelivery: jobId=${jobId}, jobStudentId=${jobStudentId}, requestStudentId=${studentId}`);
+            
+            if (!jobStudentId || jobStudentId !== studentId) throw new Error('Only the student can confirm delivery');
+            if (job.status !== JobStatus.AWAITING_STUDENT_CONFIRMATION) throw new Error('Job must be awaiting student confirmation');
+
+            const updatedJob = await jobModel.update(job._id, { status: JobStatus.COMPLETED, updatedAt: new Date() });
+
+            // Update order status to COMPLETED
+            try {
+                const rawOrderId: any = (updatedJob as any).orderId?._id ?? (updatedJob as any).orderId;
+                const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.COMPLETED });
+
+                // Emit order.updated
+                try {
+                    const meta = { by: studentId ?? null, ts: new Date().toISOString() };
+                    const orderPayload = {
+                        event: 'order.updated',
+                        order: {
+                            id: orderUpdateResult._id.toString(),
+                            studentId: orderUpdateResult.studentId.toString(),
+                            moverId: orderUpdateResult.moverId?.toString(),
+                            status: orderUpdateResult.status,
+                            volume: orderUpdateResult.volume,
+                            price: orderUpdateResult.price,
+                            studentAddress: orderUpdateResult.studentAddress,
+                            warehouseAddress: orderUpdateResult.warehouseAddress,
+                            returnAddress: orderUpdateResult.returnAddress,
+                            pickupTime: orderUpdateResult.pickupTime,
+                            returnTime: orderUpdateResult.returnTime,
+                            createdAt: orderUpdateResult.createdAt,
+                            updatedAt: orderUpdateResult.updatedAt,
+                        },
+                        meta: meta
+                    };
+                    emitToRooms([`user:${orderUpdateResult.studentId.toString()}`, `order:${orderUpdateResult._id.toString()}`], 'order.updated', orderPayload, meta);
+                } catch (emitErr) {
+                    logger.warn('Failed to emit order.updated after confirmDelivery:', emitErr);
+                }
+            } catch (err) {
+                logger.error('Failed to update order status during confirmDelivery:', err);
+                throw err;
+            }
+
+            // Emit job.updated for the completed job
+            try {
+                this.emitJobUpdated(updatedJob, { by: studentId ?? null, ts: new Date().toISOString() });
+            } catch (emitErr) {
+                logger.warn('Failed to emit job.updated after confirmDelivery:', emitErr);
+            }
+
+            return { id: updatedJob._id.toString(), status: updatedJob.status };
+        } catch (err) {
+            logger.error('Error in confirmDelivery:', err);
             throw err;
         }
     }

@@ -71,6 +71,7 @@ export enum OrderStatus {
   ACCEPTED = "ACCEPTED",
   PICKED_UP = "PICKED_UP",
   IN_STORAGE = "IN_STORAGE",
+  RETURNED = "RETURNED", // Mover delivered items, awaiting student confirmation
   COMPLETED = "COMPLETED", 
   CANCELLED = "CANCELLED",
 }
@@ -80,6 +81,7 @@ export const ACTIVE_ORDER_STATUSES = [
   OrderStatus.ACCEPTED,
   OrderStatus.PICKED_UP,
   OrderStatus.IN_STORAGE,
+  OrderStatus.RETURNED, // Include RETURNED as active status
 ];
 
 export type Order = {

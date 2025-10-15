@@ -164,4 +164,22 @@ class JobRepository @Inject constructor(
             Resource.Error(e.message ?: "Unknown error occurred")
         }
     }
+
+    suspend fun requestDeliveryConfirmation(jobId: String): Resource<Unit> {
+        return try {
+            val response = jobApiService.requestDeliveryConfirmation(jobId)
+            if (response.isSuccessful) Resource.Success(Unit) else Resource.Error("Failed to request delivery confirmation")
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Unknown error occurred")
+        }
+    }
+
+    suspend fun confirmDelivery(jobId: String): Resource<Unit> {
+        return try {
+            val response = jobApiService.confirmDelivery(jobId)
+            if (response.isSuccessful) Resource.Success(Unit) else Resource.Error("Failed to confirm delivery")
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Unknown error occurred")
+        }
+    }
 }

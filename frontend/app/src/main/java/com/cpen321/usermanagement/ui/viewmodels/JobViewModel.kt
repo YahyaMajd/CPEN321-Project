@@ -49,14 +49,24 @@ class JobViewModel @Inject constructor(
                 val response = jobRepository.getStudentJobs()
                 response.collect { resource ->
                     if (resource is Resource.Success) {
-                        val awaitingJob = resource.data?.find { job ->
+                        // Check for STORAGE jobs awaiting confirmation (pickup)
+                        val awaitingStorageJob = resource.data?.find { job ->
                             job.status == com.cpen321.usermanagement.data.local.models.JobStatus.AWAITING_STUDENT_CONFIRMATION &&
                             job.jobType == com.cpen321.usermanagement.data.local.models.JobType.STORAGE
                         }
                         
-                        if (awaitingJob != null) {
-                            android.util.Log.d("JobViewModel", "Found pending confirmation job: ${awaitingJob.id}")
-                            _uiState.value = _uiState.value.copy(pendingConfirmationJobId = awaitingJob.id)
+                        // Check for RETURN jobs awaiting confirmation (delivery)
+                        val awaitingReturnJob = resource.data?.find { job ->
+                            job.status == com.cpen321.usermanagement.data.local.models.JobStatus.AWAITING_STUDENT_CONFIRMATION &&
+                            job.jobType == com.cpen321.usermanagement.data.local.models.JobType.RETURN
+                        }
+                        
+                        if (awaitingStorageJob != null) {
+                            android.util.Log.d("JobViewModel", "Found pending pickup confirmation job: ${awaitingStorageJob.id}")
+                            _uiState.value = _uiState.value.copy(pendingConfirmationJobId = awaitingStorageJob.id)
+                        } else if (awaitingReturnJob != null) {
+                            android.util.Log.d("JobViewModel", "Found pending delivery confirmation job: ${awaitingReturnJob.id}")
+                            _uiState.value = _uiState.value.copy(pendingConfirmationJobId = awaitingReturnJob.id)
                         }
                     }
                 }
@@ -103,11 +113,12 @@ class JobViewModel @Inject constructor(
             val jobType = jobData?.optString("jobType")
             val jobId = jobData?.optString("id")
 
-            // If job is awaiting student confirmation, store it in state
-            if (jobId != null && jobId.isNotBlank() && 
-                status == "AWAITING_STUDENT_CONFIRMATION" && 
-                jobType == "STORAGE") {
-                _uiState.value = _uiState.value.copy(pendingConfirmationJobId = jobId)
+            // If job is awaiting student confirmation (for either STORAGE or RETURN), store it in state
+            if (jobId != null && jobId.isNotBlank() && status == "AWAITING_STUDENT_CONFIRMATION") {
+                // Accept both STORAGE (pickup) and RETURN (delivery) confirmations
+                if (jobType == "STORAGE" || jobType == "RETURN") {
+                    _uiState.value = _uiState.value.copy(pendingConfirmationJobId = jobId)
+                }
             }
 
             // Clear pending confirmation when job moves past that state
@@ -229,6 +240,35 @@ class JobViewModel @Inject constructor(
     fun confirmPickup(jobId: String) {
         viewModelScope.launch {
             when (val result = jobRepository.confirmPickup(jobId)) {
+                is Resource.Success -> {
+                    // Clear the pending confirmation after successful confirm
+                    _uiState.value = _uiState.value.copy(pendingConfirmationJobId = null)
+                }
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(error = result.message)
+                }
+                is Resource.Loading -> { }
+            }
+        }
+    }
+
+    fun requestDeliveryConfirmation(jobId: String) {
+        viewModelScope.launch {
+            when (val result = jobRepository.requestDeliveryConfirmation(jobId)) {
+                is Resource.Success -> {
+                    // wait for socket events to update state
+                }
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(error = result.message)
+                }
+                is Resource.Loading -> { }
+            }
+        }
+    }
+
+    fun confirmDelivery(jobId: String) {
+        viewModelScope.launch {
+            when (val result = jobRepository.confirmDelivery(jobId)) {
                 is Resource.Success -> {
                     // Clear the pending confirmation after successful confirm
                     _uiState.value = _uiState.value.copy(pendingConfirmationJobId = null)

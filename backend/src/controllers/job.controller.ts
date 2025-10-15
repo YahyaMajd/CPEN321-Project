@@ -115,4 +115,28 @@ export class JobController {
             next(error);
         }
     }
+
+    // Mover indicates delivery completed and requests student confirmation (return jobs)
+    async delivered(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+        try {
+            if (!req.user || !req.user._id) throw new Error('User not authenticated');
+            const moverId = req.user._id.toString();
+            const result = await this.jobService.requestDeliveryConfirmation(req.params.id, moverId);
+            res.status(200).json({ success: true, message: 'Delivery confirmation requested', data: result });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    // Student confirms mover delivered items (return jobs)
+    async confirmDelivery(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+        try {
+            if (!req.user || !req.user._id) throw new Error('User not authenticated');
+            const studentId = req.user._id.toString();
+            const result = await this.jobService.confirmDelivery(req.params.id, studentId);
+            res.status(200).json({ success: true, message: 'Delivery confirmed', data: result });
+        } catch (error) {
+            next(error);
+        }
+    }
 }

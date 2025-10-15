@@ -31,4 +31,10 @@ interface JobApiService {
 
     @POST("jobs/{id}/confirm-pickup")
     suspend fun confirmPickup(@Path("id") jobId: String): Response<ApiResponse<Any>>
+
+    @POST("jobs/{id}/delivered")
+    suspend fun requestDeliveryConfirmation(@Path("id") jobId: String): Response<ApiResponse<Any>>
+
+    @POST("jobs/{id}/confirm-delivery")
+    suspend fun confirmDelivery(@Path("id") jobId: String): Response<ApiResponse<Any>>
 }

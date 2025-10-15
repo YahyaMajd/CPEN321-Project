@@ -315,7 +315,15 @@ private fun JobDetailsContent(
                 }
                 
                 Button(
-                    onClick = { onUpdateStatus(JobStatus.COMPLETED) },
+                    onClick = {
+                        if (job.jobType == JobType.RETURN) {
+                            // For return jobs, request student delivery confirmation first
+                            viewModel.requestDeliveryConfirmation(job.id)
+                        } else {
+                            // For storage jobs, mark as completed directly
+                            onUpdateStatus(JobStatus.COMPLETED)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(

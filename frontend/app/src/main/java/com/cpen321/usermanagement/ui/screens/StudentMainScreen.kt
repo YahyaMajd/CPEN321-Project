@@ -99,7 +99,7 @@ fun StudentMainScreen(
         val entry = EntryPointAccessors.fromApplication(appCtx, SocketClientEntryPoint::class.java)
         val socketClient = entry.socketClient()
 
-        // Only collect job events for UI feedback (snackbars)
+        // Only collect events for UI feedback (snackbars)
         socketClient.events.collect { ev ->
             when (ev.name) {
                 "job.updated" -> {
@@ -117,15 +117,15 @@ fun StudentMainScreen(
                         "AWAITING_STUDENT_CONFIRMATION" -> {
                             when (jobType) {
                                 "STORAGE" -> "Mover is requesting confirmation that they've picked up your items"
-                                "RETURN" -> "Mover is requesting confirmation that they've picked up items at the storage facility"
-                                else -> "Mover is requesting pickup confirmation"
+                                "RETURN" -> "Mover is requesting confirmation that they've delivered your items"
+                                else -> "Mover is requesting confirmation"
                             }
                         }
 
                         "PICKED_UP" -> {
                             when (jobType) {
                                 "STORAGE" -> "Mover has picked up your items"
-                                "RETURN" -> "Mover has picked up items at the storage facility"
+                                "RETURN" -> "Items picked up from storage"
                                 else -> "Mover has picked up items"
                             }
                         }
@@ -148,6 +148,25 @@ fun StudentMainScreen(
                         }
                     }
                 }
+                "order.updated" -> {
+                    // Show snackbar notification when order is completed
+                    val orderData = when {
+                        ev.payload == null -> null
+                        ev.payload.has("order") -> ev.payload.optJSONObject("order")
+                        else -> ev.payload
+                    }
+
+                    val orderStatus = orderData?.optString("status")
+                    
+                    if (orderStatus == "COMPLETED") {
+                        launch {
+                            snackBarHostState.showSnackbar(
+                                message = "🎉 Order completed! Thank you for using our service.",
+                                duration = SnackbarDuration.Long
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -155,6 +174,10 @@ fun StudentMainScreen(
     // Student confirmation modal (composed in UI, driven by JobViewModel state)
     if (pendingConfirmJobId != null) {
         val jobId = pendingConfirmJobId!!
+        // Find the job in studentJobs to determine if it's STORAGE or RETURN
+        val pendingJob = jobUiState.studentJobs.find { it.id == jobId }
+        val isReturnJob = pendingJob?.jobType == com.cpen321.usermanagement.data.local.models.JobType.RETURN
+        
         // show a simple bottom sheet asking student to confirm
         ModalBottomSheet(
             onDismissRequest = { jobViewModel.clearPendingConfirmation() },
@@ -164,21 +187,34 @@ fun StudentMainScreen(
                 modifier = Modifier.padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Confirm pickup", style = MaterialTheme.typography.titleMedium)
-                Text("A mover is requesting confirmation that they've collected your items. Confirm?", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    if (isReturnJob) "Confirm delivery" else "Confirm pickup", 
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    if (isReturnJob) 
+                        "A mover is requesting confirmation that they've delivered your items. Confirm?" 
+                    else 
+                        "A mover is requesting confirmation that they've collected your items. Confirm?", 
+                    style = MaterialTheme.typography.bodyMedium
+                )
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     androidx.compose.material3.Button(onClick = {
-                        // Call JobViewModel to confirm pickup (clearPendingConfirmation called automatically on success)
+                        // Call appropriate confirmation method based on job type
                         coroutineScope.launch {
-                            jobViewModel.confirmPickup(jobId)
+                            if (isReturnJob) {
+                                jobViewModel.confirmDelivery(jobId)
+                            } else {
+                                jobViewModel.confirmPickup(jobId)
+                            }
                         }
                     }) {
                         Text("Confirm")
                     }
-                    androidx.compose.material3.OutlinedButton(onClick = { jobViewModel.clearPendingConfirmation() }) {
-                        Text("Cancel")
-                    }
+                    // androidx.compose.material3.OutlinedButton(onClick = { jobViewModel.clearPendingConfirmation() }) {
+                    //     Text("Cancel")
+                    // }
                 }
             }
         }

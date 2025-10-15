@@ -33,6 +33,12 @@ router.post('/:id/arrived', jobController.arrived.bind(jobController));
 // POST /api/jobs/:id/confirm-pickup - student confirms pickup
 router.post('/:id/confirm-pickup', jobController.confirmPickup.bind(jobController));
 
+// POST /api/jobs/:id/delivered - mover indicates delivery completed and requests student confirmation (return jobs)
+router.post('/:id/delivered', jobController.delivered.bind(jobController));
+
+// POST /api/jobs/:id/confirm-delivery - student confirms delivery (return jobs)
+router.post('/:id/confirm-delivery', jobController.confirmDelivery.bind(jobController));
+
 // Apply auth middleware to routes that change state
 router.use(authenticateToken);
 
