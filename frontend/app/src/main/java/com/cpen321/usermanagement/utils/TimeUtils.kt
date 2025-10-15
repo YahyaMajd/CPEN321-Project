@@ -61,4 +61,14 @@ object TimeUtils {
     fun isStartBeforeEnd(start: LocalTime, end: LocalTime): Boolean {
         return toMinutesSinceMidnight(start) < toMinutesSinceMidnight(end)
     }
+
+    /**
+     * Check if time is within a given range (inclusive)
+     */
+    fun isTimeInRange(time: LocalTime, start: LocalTime, end: LocalTime): Boolean {
+        val timeMinutes = toMinutesSinceMidnight(time)
+        val startMinutes = toMinutesSinceMidnight(start)
+        val endMinutes = toMinutesSinceMidnight(end)
+        return timeMinutes in startMinutes..endMinutes
+    }
 }

@@ -15,21 +15,28 @@ import com.cpen321.usermanagement.data.local.models.Job
 import com.cpen321.usermanagement.di.SocketClientEntryPoint
 import com.cpen321.usermanagement.ui.components.AvailableJobCard
 import com.cpen321.usermanagement.ui.viewmodels.JobViewModel
+import com.cpen321.usermanagement.ui.viewmodels.MoverAvailabilityViewModel
+import com.cpen321.usermanagement.utils.TimeUtils
 import dagger.hilt.android.EntryPointAccessors
+import java.time.DayOfWeek
+import java.time.LocalTime
 
 @Composable
 fun AvailableJobsScreen(
     onJobDetails: (Job) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: JobViewModel = hiltViewModel()
+    jobViewModel: JobViewModel = hiltViewModel(),
+    moverAvailabilityViewModel: MoverAvailabilityViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val jobUiState by jobViewModel.uiState.collectAsState()
+    val moverAvailabilityUiState by moverAvailabilityViewModel.uiState.collectAsState()
     var showOnlyAvailable by remember { mutableStateOf(false) }
 
     // Load available jobs when screen is first composed
     // JobViewModel handles socket events (job.created, job.updated) automatically
     LaunchedEffect(Unit) {
-        viewModel.loadAvailableJobs()
+        jobViewModel.loadAvailableJobs()
+        moverAvailabilityViewModel.loadAvailability()
     }
 
     Column(
@@ -64,7 +71,7 @@ fun AvailableJobsScreen(
         }
 
         when {
-            uiState.isLoading -> {
+            jobUiState.isLoading -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -72,32 +79,40 @@ fun AvailableJobsScreen(
                     CircularProgressIndicator()
                 }
             }
-            uiState.error != null -> {
+            jobUiState.error != null -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "Error: ${uiState.error}",
+                            text = "Error: ${jobUiState.error}",
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { viewModel.loadAvailableJobs() }) {
+                        Button(onClick = { jobViewModel.loadAvailableJobs() }) {
                             Text("Retry")
                         }
                     }
                 }
             }
             else -> {
-                val jobsToShow = remember(uiState.availableJobs, showOnlyAvailable) {
+                val jobsToShow = remember(jobUiState.availableJobs, showOnlyAvailable, moverAvailabilityUiState.availability) {
                     if (showOnlyAvailable) {
-                        // TODO: This is a placeholder. You need to implement the actual filtering
-                        // logic based on the mover's availability, which may require fetching that data.
-                        // For example: uiState.availableJobs.filter { job -> isWithinAvailability(job) }
-                        uiState.availableJobs
+                        jobUiState.availableJobs.filter { job ->
+                            val dt = job.scheduledTime           // LocalDateTime
+                            val day = dt.dayOfWeek
+                            val t   = dt.toLocalTime()
+
+                            val slots: List<Pair<LocalTime, LocalTime>> = moverAvailabilityUiState.availability[day].orEmpty()
+
+                            slots.any { slot: Pair<LocalTime, LocalTime> ->
+                                val (start: LocalTime, end: LocalTime) = slot
+                                TimeUtils.isTimeInRange(t, start, end)
+                            }
+                        }
                     } else {
-                        uiState.availableJobs
+                        jobUiState.availableJobs
                     }
                 }
 
@@ -118,7 +133,7 @@ fun AvailableJobsScreen(
                         items(jobsToShow) { job ->
                             AvailableJobCard(
                                 job = job,
-                                onAcceptClick = { viewModel.acceptJob(job.id) },
+                                onAcceptClick = { jobViewModel.acceptJob(job.id) },
                                 onDetailsClick = { onJobDetails(job) }
                             )
                         }
