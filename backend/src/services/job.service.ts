@@ -38,17 +38,20 @@ export class JobService {
                 meta: meta ?? { ts: new Date().toISOString() }
             };
         
+            // Newly created jobs are always unassigned (AVAILABLE status)
+            // Emit to: order room, job room, student who created it, and all movers
+            const rooms = [
+                `order:${payload.job.orderId}`, 
+                `job:${payload.job.id}`, 
+                `user:${createdJob.studentId.toString()}`,
+                'role:mover'  // Broadcast to all movers so they can see available jobs
+            ];
 
-            // Emit to order room, job room, and student who created the job
-            try { emitToRooms([`order:${payload.job.orderId}`, `job:${payload.job.id}`, `user:${createdJob.studentId.toString()}`], 'job.created', payload, meta); } catch (e) { logger.warn('Failed to emit job.created', e); }
-            
-            // Also broadcast job.created to all connected sockets as a fallback 
-            try {
-                const io = getIo();
-                io.emit('job.created', payload);
-            } catch (e) {
-                // Not fatal: if io isn't initialized yet or broadcast fails, warn and continue
-                logger.warn('Failed to broadcast job.created to all sockets', e);
+            try { 
+                emitToRooms(rooms, 'job.created', payload, meta); 
+                logger.info(`Emitted job.created for new job ${payload.job.id} to student and all movers`);
+            } catch (e) { 
+                logger.warn('Failed to emit job.created', e); 
             }
         } catch (err) {
             logger.warn('Failed to emit job.created event:', err);
@@ -70,36 +73,33 @@ export class JobService {
                 meta: meta ?? { ts: new Date().toISOString() }
             };
 
-            // Emit to order room and job room
-            try { emitToRooms([`order:${payload.job.orderId}`, `job:${payload.job.id}`], 'job.updated', payload, meta); } catch (e) { logger.warn('Failed to emit job.updated to order/job rooms', e); }
+            // Base rooms: order, job, and student who owns the job
+            const studentRoom = `user:${(updatedJob.studentId && (updatedJob.studentId._id ?? updatedJob.studentId)).toString()}`;
+            const baseRooms = [`order:${payload.job.orderId}`, `job:${payload.job.id}`, studentRoom];
 
-            // Also emit directly to the student who owns the job so they reliably receive confirmation requests
-            try {
-                const studentRoom = `user:${(updatedJob.studentId && (updatedJob.studentId._id ?? updatedJob.studentId)).toString()}`;
-                emitToRooms([studentRoom], 'job.updated', payload, meta);
-            } catch (e) {
-                logger.warn('Failed to emit job.updated to student', e);
-            }
-
-            // Emit to mover if assigned
-            if (updatedJob.moverId) {
-                try { emitToRooms([`user:${updatedJob.moverId.toString()}`], 'job.updated', payload, meta); } catch (e) { logger.warn('Failed to emit job.updated to mover', e); }
-            }
-
-            // Also broadcast job.updated to all connected sockets as a fallback
-            try {
-                const io = getIo();
-                io.emit('job.updated', payload);
-            } catch (e) {
-                // Not fatal: if io isn't initialized yet or broadcast fails, warn and continue
-                logger.warn('Failed to broadcast job.updated to all sockets', e);
+            // Security: If job has no mover assigned (AVAILABLE status), broadcast to all movers
+            // If job has a mover assigned, only emit to that specific mover
+            if (!updatedJob.moverId) {
+                // Job is available - emit to base rooms + all movers
+                try { 
+                    emitToRooms([...baseRooms, 'role:mover'], 'job.updated', payload, meta); 
+                    logger.info(`Emitted job.updated for unassigned job ${payload.job.id} to all movers`);
+                } catch (e) { 
+                    logger.warn('Failed to emit job.updated to base rooms + movers', e); 
+                }
+            } else {
+                // Job is assigned to a mover - emit to base rooms + specific mover only
+                try { 
+                    emitToRooms([...baseRooms, `user:${updatedJob.moverId.toString()}`], 'job.updated', payload, meta); 
+                    logger.info(`Emitted job.updated for assigned job ${payload.job.id} to mover ${updatedJob.moverId}`);
+                } catch (e) { 
+                    logger.warn('Failed to emit job.updated to base rooms + assigned mover', e); 
+                }
             }
         } catch (err) {
             logger.warn('Failed to emit job.updated event:', err);
         }
-    }
-
-    // Cancel (mark as CANCELLED) all jobs for a given orderId that are not already terminal
+    }    // Cancel (mark as CANCELLED) all jobs for a given orderId that are not already terminal
     async cancelJobsForOrder(orderId: string, actorId?: string) {
         try {
             const foundJobs: any[] = await jobModel.findByOrderId(new mongoose.Types.ObjectId(orderId));

@@ -26,9 +26,15 @@ io.use((socket, next) => {
 
   io.on('connection', (socket) => {
     const user = (socket as any).user;
-    logger.info(`Socket connected: ${socket.id} user=${user?.id}`);
+    logger.info(`Socket connected: ${socket.id} user=${user?.id} role=${user?.userRole}`);
     // auto-join user room
     if (user?.id) socket.join(`user:${user.id}`);
+    
+    // auto-join role room for movers to receive unassigned job broadcasts
+    if (user?.userRole === 'MOVER') {
+      socket.join('role:mover');
+      logger.info(`User ${user.id} joined role:mover room`);
+    }
 
     socket.on('disconnect', (reason) => {
       logger.info(`Socket disconnected: ${socket.id} reason=${reason}`);
