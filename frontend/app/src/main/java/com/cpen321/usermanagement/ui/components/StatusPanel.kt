@@ -22,11 +22,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -35,18 +30,22 @@ import androidx.compose.ui.unit.dp
 import com.cpen321.usermanagement.data.local.models.Order
 import com.cpen321.usermanagement.data.local.models.OrderStatus
 import com.cpen321.usermanagement.data.local.models.displayText
-import com.cpen321.usermanagement.data.local.models.Address
+import com.cpen321.usermanagement.data.local.models.Job
+import com.cpen321.usermanagement.data.local.models.JobType
+import com.cpen321.usermanagement.data.local.models.JobStatus
 // java.time imports removed (unused)
 
 @Composable
 fun StatusPanel(
     activeOrder: Order?,
+    studentJobs: List<Job> = emptyList(),
     onCreateReturnJob: () -> Unit = {}
 ) {
     if (activeOrder != null) {
         // Show status when there's an active order
         ActiveOrderStatusContent(
             order = activeOrder,
+            studentJobs = studentJobs,
             onCreateReturnJob = onCreateReturnJob
         )
     } else {
@@ -59,6 +58,7 @@ fun StatusPanel(
 @Composable
 private fun ActiveOrderStatusContent(
     order: Order,
+    studentJobs: List<Job> = emptyList(),
     onCreateReturnJob: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -163,26 +163,24 @@ private fun ActiveOrderStatusContent(
                 value = "${TimeUtils.formatPickupTime(order.returnTime)}"
             )
             
-            // If order is in storage, allow creating a return job
-            // Hide the button immediately after it's clicked (UI-only guard)
-            var didClickCreateReturnJob by remember { mutableStateOf(false) }
-
-            // Reset the clicked flag when order identity or status changes
-            LaunchedEffect(order.id, order.status) {
-                didClickCreateReturnJob = false
+            // Check if an active return job exists for this order
+            // An active return job is one that's not cancelled and not completed yet
+            val hasActiveReturnJob = studentJobs.any { job ->
+                job.jobType == JobType.RETURN && 
+                job.orderId == order.id && 
+                job.status != JobStatus.CANCELLED &&
+                job.status != JobStatus.COMPLETED
             }
-
-            if (order.status == OrderStatus.IN_STORAGE && !didClickCreateReturnJob) {
+            
+            // Show "Create Return Job" button only if:
+            // 1. Order is in storage
+            // 2. No active return job exists (completed return jobs don't count)
+            if (order.status == OrderStatus.IN_STORAGE && !hasActiveReturnJob) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    Button(onClick = {
-                        // hide the button immediately
-                        didClickCreateReturnJob = true
-                        // still invoke the provided callback to perform the action
-                        onCreateReturnJob()
-                    }) {
+                    Button(onClick = onCreateReturnJob) {
                         Text("Create Return Job")
                     }
                 }

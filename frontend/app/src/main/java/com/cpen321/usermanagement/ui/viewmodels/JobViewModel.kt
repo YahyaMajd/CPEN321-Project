@@ -17,6 +17,7 @@ import javax.inject.Inject
 data class JobUiState(
     val availableJobs: List<Job> = emptyList(),
     val moverJobs: List<Job> = emptyList(),
+    val studentJobs: List<Job> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val pendingConfirmationJobId: String? = null // Job awaiting student confirmation
@@ -71,14 +72,16 @@ class JobViewModel @Inject constructor(
                 when (event.name) {
                     "job.updated" -> {
                         handleJobUpdatedEvent(event.payload)
-                        // Refresh job lists to reflect updated job status
+                        // Refresh all job lists to reflect updated job status
                         loadAvailableJobs()
                         loadMoverJobs()
+                        loadStudentJobs() // Refresh student jobs for button visibility
                     }
                     "job.created" -> {
-                        // New job created, refresh available jobs list
-                        android.util.Log.d("JobViewModel", "New job created, refreshing available jobs")
+                        // New job created, refresh all job lists
+                        android.util.Log.d("JobViewModel", "New job created, refreshing job lists")
                         loadAvailableJobs()
+                        loadStudentJobs() // Refresh student jobs when return job is created
                     }
                 }
             }
@@ -153,6 +156,31 @@ class JobViewModel @Inject constructor(
                     is Resource.Success -> {
                         _uiState.value = _uiState.value.copy(
                             moverJobs = resource.data ?: emptyList(),
+                            isLoading = false,
+                            error = null
+                        )
+                    }
+                    is Resource.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = resource.message
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
+    fun loadStudentJobs() {
+        viewModelScope.launch {
+            jobRepository.getStudentJobs().collect { resource ->
+                when (resource) {
+                    is Resource.Loading -> {
+                        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+                    }
+                    is Resource.Success -> {
+                        _uiState.value = _uiState.value.copy(
+                            studentJobs = resource.data ?: emptyList(),
                             isLoading = false,
                             error = null
                         )

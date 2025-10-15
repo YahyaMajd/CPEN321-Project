@@ -61,6 +61,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import com.cpen321.usermanagement.di.SocketClientEntryPoint
 import androidx.compose.ui.platform.LocalContext
+import com.cpen321.usermanagement.data.local.models.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -88,6 +89,8 @@ fun StudentMainScreen(
         orderViewModel.refreshActiveOrder()
         // Check if there's already a job awaiting confirmation (in case event was emitted while logged out)
         jobViewModel.checkForPendingConfirmations()
+        // Load student jobs to check if return job already exists
+        jobViewModel.loadStudentJobs()
     }
 
     // Subscribe to job socket events for snackbar notifications only
@@ -184,6 +187,7 @@ fun StudentMainScreen(
     MainContent(
         uiState = uiState,
         activeOrder = activeOrder,
+        studentJobs = jobUiState.studentJobs,
         orderViewModel = orderViewModel,
         snackBarHostState = snackBarHostState,
         onProfileClick = onProfileClick,
@@ -198,6 +202,7 @@ fun StudentMainScreen(
 private fun MainContent(
     uiState: MainUiState,
     activeOrder: Order?,
+    studentJobs: List<Job>,
     orderViewModel: OrderViewModel,
     snackBarHostState: SnackbarHostState,
     onProfileClick: () -> Unit,
@@ -224,6 +229,7 @@ private fun MainContent(
         MainBody(
             paddingValues = paddingValues,
             activeOrder = activeOrder,
+            studentJobs = studentJobs,
             onCreateOrderClick = { showCreateOrderSheet = true },
             onCreateReturnJobClick = {
                 // Launch the createReturnJob flow and show feedback
@@ -363,6 +369,7 @@ private fun MainSnackbarHost(
 private fun MainBody(
     paddingValues: PaddingValues,
     activeOrder: com.cpen321.usermanagement.data.local.models.Order?,
+    studentJobs: List<Job>,
     onCreateOrderClick: () -> Unit,
     onCreateReturnJobClick: ()-> Unit,
     modifier: Modifier = Modifier
@@ -384,6 +391,7 @@ private fun MainBody(
         // Status Panel (Hidden when no active order)
         StatusPanel(
             activeOrder = activeOrder, // Pass the actual order data
+            studentJobs = studentJobs, // Pass student jobs to check if return job exists
             onCreateReturnJob = onCreateReturnJobClick
         )
     }
