@@ -248,12 +248,15 @@ export class OrderService {
         try{
             const orders = await orderModel.getAllOrders(studentId);
             const mappedOrders = orders.map((order: Order) => ({
+                id: order._id.toString(),
                 studentId: order.studentId.toString(),
+                moverId: order.moverId?.toString(),
                 status: order.status,
                 volume: order.volume,
                 totalPrice: order.price,
                 studentAddress: order.studentAddress,
                 warehouseAddress: order.warehouseAddress,
+                returnAddress: order.returnAddress,
                 pickupTime: order.pickupTime,
                 returnTime: order.returnTime,
             }));

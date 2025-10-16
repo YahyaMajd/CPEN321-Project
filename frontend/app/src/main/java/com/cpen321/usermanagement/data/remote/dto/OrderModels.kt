@@ -34,6 +34,7 @@ data class CreateReturnJobResponse(
 
 // OrderDto.kt
 data class OrderDto(
+    val id: String,
     val studentId: String,
     val moverId: String?,
     val status: String,

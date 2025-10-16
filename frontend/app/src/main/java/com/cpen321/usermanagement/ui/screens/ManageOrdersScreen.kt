@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.cpen321.usermanagement.data.local.models.Order
+import com.cpen321.usermanagement.data.local.models.OrderStatus
+import com.cpen321.usermanagement.data.local.models.displayText
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -191,22 +193,40 @@ fun OrderListItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+        elevation = CardDefaults.cardElevation(2.dp),
+        onClick = { onManageOrderClick(order) }
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text("Order ID: ${order.id ?: "N/A"}", style = MaterialTheme.typography.bodyMedium)
-            Text("Status: ${order.status}", style = MaterialTheme.typography.bodySmall)
-            Text("Price: $${order.price}", style = MaterialTheme.typography.bodySmall)
-            Text("Pickup: ${TimeUtils.formatPickupTime(order.pickupTime)}", style = MaterialTheme.typography.bodySmall)
-            Text("Return: ${TimeUtils.formatPickupTime(order.returnTime)}", style = MaterialTheme.typography.bodySmall)
-            Button(
-                onClick = { onManageOrderClick(order) },
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .align(Alignment.End)
-            ) {
-                Text("Manage Order")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Order #${order.id?.takeLast(6) ?: "N/A"}", 
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = order.status.displayText, 
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = when (order.status) {
+                        OrderStatus.COMPLETED -> MaterialTheme.colorScheme.primary
+                        OrderStatus.CANCELLED -> MaterialTheme.colorScheme.error
+                        OrderStatus.IN_STORAGE -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.secondary
+                    }
+                )
             }
+            Text(
+                text = "›",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp)
+            )
         }
     }
 }
@@ -218,37 +238,151 @@ fun ManageOrderSheet(
     onClose: () -> Unit,
     onOrderCancelled: () -> Unit = {}
 ) {
+    // Check if order can be cancelled (not already CANCELLED or COMPLETED)
+    val canCancel = order.status == OrderStatus.PENDING
+    
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("Manage Order") },
+        title = { 
+            Text(
+                "Order Details",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            ) 
+        },
         text = {
-            Column {
-                Text("Order ID: ${order.id ?: "N/A"}")
-                Text("Status: ${order.status}")
-                Text("Pickup: ${TimeUtils.formatPickupTime(order.pickupTime)}")
-                Text("Return: ${TimeUtils.formatPickupTime(order.returnTime)}")
-                Button(
-                    onClick = {
-                        orderViewModel.cancelOrder() { err ->
-                            // Optionally show a snackbar/toast
-                            if (err == null) {
-                                // Close sheet and trigger refresh on success
-                                onOrderCancelled()
-                                onClose()
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .align(Alignment.End)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Order ID
+                DetailRow(label = "Order ID", value = order.id ?: "N/A")
+                
+                // Status with color indicator
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Cancel Order")
+                    Text(
+                        text = "Status:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = order.status.displayText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = when (order.status) {
+                            OrderStatus.COMPLETED -> MaterialTheme.colorScheme.primary
+                            OrderStatus.CANCELLED -> MaterialTheme.colorScheme.error
+                            OrderStatus.IN_STORAGE -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.secondary
+                        },
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                // add actions: cancel, contact mover, track, etc.
+                
+                Divider()
+                
+                // Pricing
+                DetailRow(label = "Volume", value = "${order.volume} m³")
+                DetailRow(label = "Price", value = "$${String.format("%.2f", order.price)}")
+                
+                Divider()
+                
+                // Addresses
+                Text(
+                    text = "Pickup Address",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = order.studentAddress.formattedAddress,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Text(
+                    text = "Storage Address",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                Text(
+                    text = order.warehouseAddress.formattedAddress,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                if (order.returnAddress != null) {
+                    Text(
+                        text = "Return Address",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    Text(
+                        text = order.returnAddress.formattedAddress,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Divider()
+                
+                // Dates
+                DetailRow(label = "Pickup Date", value = TimeUtils.formatPickupTime(order.pickupTime))
+                DetailRow(label = "Return Date", value = TimeUtils.formatPickupTime(order.returnTime))
+                
+                // Cancel button (only show if order can be cancelled)
+                if (canCancel) {
+                    Button(
+                        onClick = {
+                            orderViewModel.cancelOrder() { err ->
+                                if (err == null) {
+                                    onOrderCancelled()
+                                    onClose()
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Cancel Order")
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = onClose) { Text("Close") }
         }
     )
+}
+
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "$label:",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }

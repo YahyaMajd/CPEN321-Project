@@ -165,6 +165,7 @@ class OrderRepository @Inject constructor(
         if (response.isSuccessful) {
             val orders = response.body()?.orders?.map{ dto ->
                 Order(
+                    id = dto.id,
                     studentId = dto.studentId,
                     moverId = dto.moverId,
                     status = OrderStatus.valueOf(dto.status),
