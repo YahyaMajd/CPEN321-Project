@@ -43,7 +43,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(title: String, message: String) {
-        createChannelIfNeeded()
+        // createChannelIfNeeded()
 
         // Launch main activity when tapping the notification
         val intent = Intent(this, MainActivity::class.java).apply {

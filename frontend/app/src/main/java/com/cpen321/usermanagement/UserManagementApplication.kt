@@ -14,14 +14,13 @@ class UserManagementApplication : Application() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                "default_channel",
-                "Default Notifications",
-                NotificationManager.IMPORTANCE_DEFAULT
+            "default_channel",
+            "Default Notifications",
+            NotificationManager.IMPORTANCE_HIGH 
             ).apply {
                 description = "General app notifications"
             }
-
-            val manager = NotificationManagerCompat.from(this)
+            val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
     }
