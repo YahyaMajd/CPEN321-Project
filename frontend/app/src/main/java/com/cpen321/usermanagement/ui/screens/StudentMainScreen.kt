@@ -246,7 +246,7 @@ private fun MainContent(
     modifier: Modifier = Modifier
 ) {
     var showCreateOrderSheet by remember { mutableStateOf(false) }
-    val bottomSheetState = rememberModalBottomSheetState()
+    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
     
     Scaffold(
