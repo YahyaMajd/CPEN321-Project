@@ -21,6 +21,7 @@ import com.cpen321.usermanagement.ui.screens.AvailableJobsScreen
 import com.cpen321.usermanagement.ui.screens.JobDetailsScreen
 import com.cpen321.usermanagement.ui.screens.LoadingScreen
 import com.cpen321.usermanagement.ui.screens.MainScreen
+import com.cpen321.usermanagement.ui.screens.ManageOrdersScreen
 import com.cpen321.usermanagement.ui.screens.MoverJobHistoryScreen
 import com.cpen321.usermanagement.ui.screens.ManageProfileScreen
 import com.cpen321.usermanagement.ui.screens.MoverMainScreen
@@ -48,6 +49,7 @@ object NavRoutes {
     const val ROLE_SELECTION = "role_selection"
     const val MANAGE_PROFILE = "manage_profile"
 
+    const val MANAGE_ORDERS = "manage_orders"
     const val JOB_HISTORY = "job_history"
     const val PROFILE_COMPLETION = "profile_completion"
     const val AVAILABLE_JOBS = "mover/available_jobs"
@@ -147,7 +149,11 @@ private fun handleNavigationEvent(
         }
 
         is NavigationEvent.NavigateToManageOrders -> {
-            navController.navigate(NavRoutes.JOB_HISTORY)
+            val route = when (navigationStateManager.getCurrentUserRole()?.uppercase()) {
+                "MOVER" -> NavRoutes.JOB_HISTORY
+                else -> NavRoutes.MANAGE_ORDERS
+            }
+            navController.navigate(route)
             navigationStateManager.clearNavigationEvent()
         }
 
@@ -248,6 +254,7 @@ private fun AppNavHost(
             ProfileScreen(
                 authViewModel = authViewModel,
                 profileViewModel = profileViewModel,
+                userRole = navigationStateManager.getCurrentUserRole(),
                 actions = ProfileScreenActions(
                     onBackClick = { navigationStateManager.navigateBack() },
                     onManageProfileClick = { navigationStateManager.navigateToManageProfile() },
@@ -262,6 +269,14 @@ private fun AppNavHost(
             ManageProfileScreen(
                 profileViewModel = profileViewModel,
                 onBackClick = { navigationStateManager.navigateBack() }
+            )
+        }
+
+        composable (NavRoutes.MANAGE_ORDERS){
+            ManageOrdersScreen(
+                profileViewModel = profileViewModel,
+                orderViewModel = orderViewModel,
+                onBackClick = { navigationStateManager.navigateBack()}
             )
         }
 

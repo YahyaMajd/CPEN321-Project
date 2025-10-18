@@ -336,6 +336,13 @@ class NavigationStateManager @Inject constructor() {
     }
 
     /**
+     * Get the current user role
+     */
+    fun getCurrentUserRole(): String? {
+        return _navigationState.value.userRole
+    }
+
+    /**
      * Reset navigation events after handling
      */
     fun clearNavigationEvent() {

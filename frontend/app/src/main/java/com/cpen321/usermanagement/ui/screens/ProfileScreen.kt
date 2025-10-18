@@ -68,6 +68,7 @@ private data class ProfileScreenCallbacks(
 fun ProfileScreen(
     authViewModel: AuthViewModel,
     profileViewModel: ProfileViewModel,
+    userRole: String?,
     actions: ProfileScreenActions
 ) {
     val uiState by profileViewModel.uiState.collectAsState()
@@ -88,6 +89,7 @@ fun ProfileScreen(
         uiState = uiState,
         dialogState = dialogState,
         snackBarHostState = snackBarHostState,
+        userRole = userRole,
         callbacks = ProfileScreenCallbacks(
             onBackClick = actions.onBackClick,
             onManageProfileClick = actions.onManageProfileClick,
@@ -125,6 +127,7 @@ private fun ProfileContent(
     uiState: ProfileUiState,
     dialogState: ProfileDialogState,
     snackBarHostState: SnackbarHostState,
+    userRole: String?,
     callbacks: ProfileScreenCallbacks,
     modifier: Modifier = Modifier
 ) {
@@ -146,9 +149,9 @@ private fun ProfileContent(
         }
     ) { paddingValues ->
         ProfileBody(
-
             paddingValues = paddingValues,
             isLoading = uiState.isLoadingProfile,
+            userRole = userRole,
             onManageProfileClick = callbacks.onManageProfileClick,
             onManageOrdersClick = callbacks.onManageOrdersClick,
             onDeleteAccountClick = callbacks.onDeleteAccountClick,
@@ -195,6 +198,7 @@ private fun ProfileTopBar(
 private fun ProfileBody(
     paddingValues: PaddingValues,
     isLoading: Boolean,
+    userRole: String?,
     onManageProfileClick: () -> Unit,
     onManageOrdersClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
@@ -215,6 +219,7 @@ private fun ProfileBody(
 
             else -> {
                 ProfileMenuItems(
+                    userRole = userRole,
                     onManageProfileClick = onManageProfileClick,
                     onManageOrdersClick  = onManageOrdersClick,
                     onSignOutClick = onSignOutClick,
@@ -227,6 +232,7 @@ private fun ProfileBody(
 
 @Composable
 private fun ProfileMenuItems(
+    userRole: String?,
     onManageProfileClick: () -> Unit,
     onManageOrdersClick:  () -> Unit,
     onSignOutClick: () -> Unit,
@@ -244,6 +250,7 @@ private fun ProfileMenuItems(
         verticalArrangement = Arrangement.spacedBy(spacing.medium)
     ) {
         ProfileSection(
+            userRole = userRole,
             onManageProfileClick = onManageProfileClick,
             onManageOrdersClick  = onManageOrdersClick
         )
@@ -257,6 +264,7 @@ private fun ProfileMenuItems(
 
 @Composable
 private fun ProfileSection(
+    userRole: String?,
     onManageProfileClick: () -> Unit,
     onManageOrdersClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -266,7 +274,11 @@ private fun ProfileSection(
         verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.medium)
     ) {
         ManageProfileButton(onClick = onManageProfileClick)
-        JobHistoryButton (onClick = onManageOrdersClick)
+        if (userRole?.uppercase() == "MOVER") {
+            JobHistoryButton(onClick = onManageOrdersClick)
+        } else {
+            ManageOrdersButton(onClick = onManageOrdersClick)
+        }
     }
 }
 
@@ -298,6 +310,17 @@ private fun ManageProfileButton(
 
 @Composable
 private fun JobHistoryButton(
+    onClick: () -> Unit,
+) {
+    MenuButtonItem(
+        text = stringResource(R.string.job_history),
+        iconRes = R.drawable.ic_edit,
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun ManageOrdersButton(
     onClick: () -> Unit,
 ) {
     MenuButtonItem(
