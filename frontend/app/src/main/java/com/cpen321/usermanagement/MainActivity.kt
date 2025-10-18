@@ -14,12 +14,37 @@ import com.cpen321.usermanagement.ui.theme.ProvideFontSizes
 import com.cpen321.usermanagement.ui.theme.ProvideSpacing
 import com.cpen321.usermanagement.ui.theme.UserManagementTheme
 import dagger.hilt.android.AndroidEntryPoint
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    // Create launcher for runtime permission
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Permission granted — notifications will show
+        } else {
+            // Permission denied — you could show a message if needed
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         setContent {
             UserManagementTheme {
                 UserManagementApp()
