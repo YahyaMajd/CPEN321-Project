@@ -21,14 +21,14 @@ import com.cpen321.usermanagement.ui.screens.AvailableJobsScreen
 import com.cpen321.usermanagement.ui.screens.JobDetailsScreen
 import com.cpen321.usermanagement.ui.screens.LoadingScreen
 import com.cpen321.usermanagement.ui.screens.MainScreen
-import com.cpen321.usermanagement.ui.screens.ManageHobbiesScreen
-import com.cpen321.usermanagement.ui.screens.ManageOrdersScreen
+import com.cpen321.usermanagement.ui.screens.MoverJobHistoryScreen
 import com.cpen321.usermanagement.ui.screens.ManageProfileScreen
 import com.cpen321.usermanagement.ui.screens.MoverMainScreen
 import com.cpen321.usermanagement.ui.screens.ProfileScreenActions
 import com.cpen321.usermanagement.ui.screens.ProfileCompletionScreen
 import com.cpen321.usermanagement.ui.screens.ProfileScreen
 import com.cpen321.usermanagement.ui.screens.RoleSelectionScreen
+import com.cpen321.usermanagement.ui.viewmodels.JobViewModel
 import com.cpen321.usermanagement.ui.screens.StudentMainScreen
 import com.cpen321.usermanagement.ui.viewmodels.AuthViewModel
 import com.cpen321.usermanagement.ui.viewmodels.MainViewModel
@@ -47,9 +47,8 @@ object NavRoutes {
     const val PROFILE = "profile"
     const val ROLE_SELECTION = "role_selection"
     const val MANAGE_PROFILE = "manage_profile"
-    const val MANAGE_HOBBIES = "manage_hobbies"
 
-    const val MANAGE_ORDERS = "manage_orders"
+    const val JOB_HISTORY = "job_history"
     const val PROFILE_COMPLETION = "profile_completion"
     const val AVAILABLE_JOBS = "mover/available_jobs"
 }
@@ -67,6 +66,7 @@ fun AppNavigation(
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val mainViewModel: MainViewModel = hiltViewModel()
     val orderViewModel: OrderViewModel = hiltViewModel()
+    val jobViewModel: JobViewModel = hiltViewModel()
     // Handle navigation events from NavigationStateManager
     LaunchedEffect(navigationEvent) {
         handleNavigationEvent(
@@ -85,6 +85,7 @@ fun AppNavigation(
         profileViewModel = profileViewModel,
         mainViewModel = mainViewModel,
         orderViewModel = orderViewModel,
+        jobViewModel = jobViewModel,
         navigationStateManager = navigationStateManager
     )
 }
@@ -145,13 +146,8 @@ private fun handleNavigationEvent(
             navigationStateManager.clearNavigationEvent()
         }
 
-        is NavigationEvent.NavigateToManageHobbies -> {
-            navController.navigate(NavRoutes.MANAGE_HOBBIES)
-            navigationStateManager.clearNavigationEvent()
-        }
-
         is NavigationEvent.NavigateToManageOrders -> {
-            navController.navigate(NavRoutes.MANAGE_ORDERS)
+            navController.navigate(NavRoutes.JOB_HISTORY)
             navigationStateManager.clearNavigationEvent()
         }
 
@@ -215,6 +211,7 @@ private fun AppNavHost(
     profileViewModel: ProfileViewModel,
     mainViewModel: MainViewModel,
     orderViewModel: OrderViewModel,
+    jobViewModel: JobViewModel,
     navigationStateManager: NavigationStateManager
 ) {
     NavHost(
@@ -254,7 +251,6 @@ private fun AppNavHost(
                 actions = ProfileScreenActions(
                     onBackClick = { navigationStateManager.navigateBack() },
                     onManageProfileClick = { navigationStateManager.navigateToManageProfile() },
-                    onManageHobbiesClick = { navigationStateManager.navigateToManageHobbies() },
                     onManageOrdersClick = {navigationStateManager.navigateToManageOrders()},
                     onAccountDeleted = { navigationStateManager.handleAccountDeletion() },
                     onSignOut = {navigationStateManager.handleSignOut()}
@@ -269,17 +265,10 @@ private fun AppNavHost(
             )
         }
 
-        composable(NavRoutes.MANAGE_HOBBIES) {
-            ManageHobbiesScreen(
+        composable (NavRoutes.JOB_HISTORY){
+            MoverJobHistoryScreen(
+                jobViewModel = jobViewModel,
                 profileViewModel = profileViewModel,
-                onBackClick = { navigationStateManager.navigateBack() }
-            )
-        }
-
-        composable (NavRoutes.MANAGE_ORDERS){
-            ManageOrdersScreen(
-                profileViewModel = profileViewModel,
-                orderViewModel = orderViewModel,
                 onBackClick = { navigationStateManager.navigateBack()}
             )
         }

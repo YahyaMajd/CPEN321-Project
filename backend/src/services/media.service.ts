@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import { IMAGES_DIR } from '../constants/hobbies';
+const IMAGES_DIR = path.join(__dirname, '../../uploads/images');
 
 export class MediaService {
   static async saveImage(filePath: string, userId: string): Promise<string> {

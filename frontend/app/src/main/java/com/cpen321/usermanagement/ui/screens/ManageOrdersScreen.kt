@@ -44,8 +44,7 @@ private data class ManageOrdersScreenData(
 
 private data class ManageOrdersScreenActions(
     val onBackClick: () -> Unit,
-    val onManageOrderClick: (Order) -> Unit,
-    val onSaveClick: () -> Unit
+    val onManageOrderClick: (Order) -> Unit
 )
 @Composable
 fun ManageOrdersScreen(
@@ -77,8 +76,7 @@ fun ManageOrdersScreen(
         ),
         actions = ManageOrdersScreenActions(
             onBackClick = onBackClick,
-            onManageOrderClick = {order -> orderViewModel.onManageOrder(order) },
-            onSaveClick = profileViewModel::saveHobbies
+            onManageOrderClick = {order -> orderViewModel.onManageOrder(order) }
         )
     )
 
@@ -282,13 +280,13 @@ fun ManageOrderSheet(
                     )
                 }
                 
-                Divider()
+                HorizontalDivider()
                 
                 // Pricing
                 DetailRow(label = "Volume", value = "${order.volume} m³")
                 DetailRow(label = "Price", value = "$${String.format("%.2f", order.price)}")
                 
-                Divider()
+                HorizontalDivider()
                 
                 // Addresses
                 Text(
@@ -328,7 +326,7 @@ fun ManageOrderSheet(
                     )
                 }
                 
-                Divider()
+                HorizontalDivider()
                 
                 // Dates
                 DetailRow(label = "Pickup Date", value = TimeUtils.formatPickupTime(order.pickupTime))

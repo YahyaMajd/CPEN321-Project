@@ -6,8 +6,6 @@ import com.cpen321.usermanagement.data.remote.dto.User
 interface ProfileRepository {
     suspend fun getProfile(): Result<User>
     suspend fun updateProfile(name: String, bio: String): Result<User>
-    suspend fun updateUserHobbies(hobbies: List<String>): Result<User>
-    suspend fun getAvailableHobbies(): Result<List<String>>
     suspend fun deleteProfile(): Result<Unit>
     suspend fun updateMoverAvailability(availability: Map<String, List<List<String>>>): Result<User>
 }

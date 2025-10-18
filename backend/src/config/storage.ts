@@ -3,7 +3,7 @@ import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
 
-import { IMAGES_DIR } from '../constants/hobbies';
+const IMAGES_DIR = path.join(__dirname, '../../uploads/images');
 
 if (!fs.existsSync(IMAGES_DIR)) {
   fs.mkdirSync(IMAGES_DIR, { recursive: true });
