@@ -17,4 +17,6 @@ router.post(
 
 router.delete('/profile', userController.deleteProfile);
 
+router.post('/cash-out', userController.cashOut);
+
 export default router;

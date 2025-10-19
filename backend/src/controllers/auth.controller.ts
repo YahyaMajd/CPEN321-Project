@@ -101,7 +101,13 @@ export class AuthController {
       const user = req.user!; // From JWT middleware
       const { userRole } = req.body;
       
-      const updatedUser = await userModel.update(user._id, { userRole });
+      // Initialize credits to 0 when selecting MOVER role
+      const updateData: any = { userRole };
+      if (userRole === 'MOVER') {
+        updateData.credits = 0;
+      }
+      
+      const updatedUser = await userModel.update(user._id, updateData);
       
       if (!updatedUser) {
         return res.status(404).json({

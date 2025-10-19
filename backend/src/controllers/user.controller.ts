@@ -71,4 +71,41 @@ export class UserController {
       next(error);
     }
   }
+
+  async cashOut(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = req.user!;
+
+      // Only movers can cash out
+      if (user.userRole !== 'MOVER') {
+        return res.status(403).json({
+          message: 'Only movers can cash out credits',
+        });
+      }
+
+      // Reset credits to 0
+      const updatedUser = await userModel.update(user._id, { credits: 0 });
+
+      if (!updatedUser) {
+        return res.status(404).json({
+          message: 'User not found',
+        });
+      }
+
+      res.status(200).json({
+        message: 'Credits cashed out successfully',
+        data: { user: updatedUser },
+      });
+    } catch (error) {
+      logger.error('Failed to cash out credits:', error);
+
+      if (error instanceof Error) {
+        return res.status(500).json({
+          message: error.message || 'Failed to cash out credits',
+        });
+      }
+
+      next(error);
+    }
+  }
 }

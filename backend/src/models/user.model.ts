@@ -65,6 +65,11 @@ const userSchema = new Schema<IUser>(
       required: false,
       trim: true,
     },
+    credits: {
+      type: Number,
+      required: false,
+      default: 0,
+    },
   },
   {
     timestamps: true,

@@ -25,6 +25,7 @@ export interface IUser extends Document {
   capacity?: number;
   carType?: string;
   plateNumber?: string;
+  credits?: number; // Credits earned from completed jobs (mover only)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -66,6 +67,7 @@ export const updateProfileSchema = z.object({
   capacity: z.number().positive().optional(),
   carType: z.string().optional(),
   plateNumber: z.string().optional(),
+  credits: z.number().min(0).optional(),
 });
 
 export const selectRoleSchema = z.object({
