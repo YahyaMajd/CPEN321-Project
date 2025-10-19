@@ -23,7 +23,7 @@ import com.cpen321.usermanagement.data.remote.dto.UpdateProfileRequest
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject
-    lateinit var userInterface: UserInterface  // Now you can access updateProfile()
+    lateinit var userInterface: UserInterface 
     private val CHANNEL_ID = "default_channel"
     private val TAG = "MyFCM"
 
@@ -59,7 +59,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         Log.d(TAG, "Notification body: ${remoteMessage.getNotification()?.body}")
 
         Log.d(TAG, "Remote Message object: ${remoteMessage}")
-        // Log data payload (if present)
+
         if (remoteMessage.data.isNotEmpty()) {
             Log.d(TAG, "Message data payload: ${remoteMessage.data}")
         }
@@ -72,7 +72,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(title: String, message: String) {
-        // createChannelIfNeeded()
+        // createChannelIfNeeded() TODO: Uncomment this if notifications are not showing on Android 8+
 
         // Launch main activity when tapping the notification
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -87,7 +87,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val notificationId = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // <- ensure this drawable exists
+            .setSmallIcon(R.drawable.ic_launcher_foreground) // TODO: Replace with our own app icon later
             .setContentTitle(title)
             .setContentText(message)
             .setAutoCancel(true)
