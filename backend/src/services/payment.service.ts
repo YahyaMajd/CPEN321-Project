@@ -60,6 +60,23 @@ export class PaymentService {
             throw error;
         }
     }
+
+    /**
+     * Refund a payment
+     */
+    async refundPayment(paymentIntentId: string, amount?: number): Promise<PaymentResult> {
+        try {
+            logger.info(`Refunding payment for intent: ${paymentIntentId}${amount ? ` (amount: ${amount})` : ''}`);
+            
+            const result = await stripeService.refundPayment(paymentIntentId, amount);
+            
+            logger.info(`Refund processed: ${result.paymentId} - Status: ${result.status}`);
+            return result;
+        } catch (error) {
+            logger.error('Error in PaymentService.refundPayment:', error);
+            throw error;
+        }
+    }
 }
 
 export const paymentService = new PaymentService();

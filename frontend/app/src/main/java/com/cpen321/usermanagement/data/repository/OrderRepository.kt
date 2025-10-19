@@ -29,7 +29,12 @@ class OrderRepository @Inject constructor(
     /**
      * Transform frontend OrderRequest to backend CreateOrderRequest
      */
-    private suspend fun transformToCreateOrderRequest(orderRequest: OrderRequest, studentAddr: Address? = null, warehouseAddr: Address? = null): CreateOrderRequest? {
+    private suspend fun transformToCreateOrderRequest(
+        orderRequest: OrderRequest, 
+        studentAddr: Address? = null, 
+        warehouseAddr: Address? = null,
+        paymentIntentId: String? = null
+    ): CreateOrderRequest? {
         val userId = getCurrentUserId() ?: return null
         
         // Calculate volume from box quantities
@@ -69,7 +74,8 @@ class OrderRepository @Inject constructor(
             studentAddress = studentAddress,
             warehouseAddress = warehouseAddress,
             pickupTime = pickupTime,
-            returnTime = returnTime
+            returnTime = returnTime,
+            paymentIntentId = paymentIntentId // Include payment intent ID for refunds
         )
     }
     
@@ -105,7 +111,7 @@ class OrderRepository @Inject constructor(
     /**
      * Submit order to backend API
      */
-    suspend fun submitOrder(orderRequest: OrderRequest): Result<Order> {
+    suspend fun submitOrder(orderRequest: OrderRequest, paymentIntentId: String? = null): Result<Order> {
         // prevent concurrent submits
         if (isSubmitting) return Result.failure(Exception("Already submitting"))
         isSubmitting = true
@@ -116,17 +122,22 @@ class OrderRepository @Inject constructor(
         return try {
             println("🚀 OrderRepository: Starting order submission (idempotency=$idempotencyKey)")
             println("📦 OrderRequest: $orderRequest")
+            println("💳 PaymentIntentId: $paymentIntentId")
 
-            val createOrderRequest = transformToCreateOrderRequest(orderRequest, lastStudentAddress, lastQuoteResponse?.warehouseAddress)
-                ?: return Result.failure(Exception("Failed to create order request"))
+            val createOrderRequest = transformToCreateOrderRequest(
+                orderRequest, 
+                lastStudentAddress, 
+                lastQuoteResponse?.warehouseAddress,
+                paymentIntentId
+            ) ?: return Result.failure(Exception("Failed to create order request"))
 
             println("🌐 CreateOrderRequest: $createOrderRequest")
             val response = orderApi.placeOrder(createOrderRequest)
             println("📡 Response code: ${response.code()}")
             println("📡 Response message: ${response.message()}")
             if (response.isSuccessful) {
-                response.body()?.let {
-                    Result.success(it)
+                response.body()?.let { order ->
+                    Result.success(order)
                 } ?: Result.failure(Exception("Empty response"))
             } else {
                 Result.failure(Exception("Failed to place order: ${response.message()}"))

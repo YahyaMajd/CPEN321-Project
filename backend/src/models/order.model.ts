@@ -47,6 +47,7 @@ const orderSchema = new Schema(
     warehouseAddress: { type: addressSubSchema, required: true },
       returnAddress: { type: addressSubSchema, required: false }, // the location that boxes from warehouse go to 
       idempotencyKey: { type: String, required: false },
+      paymentIntentId: { type: String, required: false }, // Stripe payment intent ID for refunds
     pickupTime: { type: Date, required: true },
     returnTime: { type: Date, required: false },
   },

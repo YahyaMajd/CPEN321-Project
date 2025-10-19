@@ -26,6 +26,7 @@ export const createOrderSchema = z.object({
   pickupTime: z.string().datetime(),
   returnTime: z.string().datetime(),
   returnAddress: addressSchema.optional(), // Optional return address
+  paymentIntentId: z.string().optional(), // Stripe payment intent ID for refunds
 });
 
 // Request types
@@ -96,4 +97,5 @@ export type Order = {
     returnAddress?: Address; // Make it optional in type as well
     pickupTime: string; // ISO date string
     returnTime: string;  // ISO date string
+    paymentIntentId?: string; // Stripe payment intent ID for refunds
 };

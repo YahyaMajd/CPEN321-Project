@@ -6,6 +6,7 @@ import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CancelOrderResponse
 import logger from "../utils/logger.util";
 import { emitToRooms } from "../socket";
 import { jobService } from "./job.service";
+import { paymentService } from "./payment.service";
 import { log } from "console";
 import { JobType, CreateJobRequest, JobStatus } from "../types/job.type";
 import ca from "zod/v4/locales/ca.js";
@@ -78,6 +79,7 @@ export class OrderService {
                 pickupTime,
                 returnTime,
                 returnAddress,
+                paymentIntentId,
             } = reqData as any;
 
             const studentObjectId = new mongoose.Types.ObjectId(studentId);
@@ -93,6 +95,7 @@ export class OrderService {
                 pickupTime,
                 returnTime,
                 idempotencyKey: idempotencyKey,
+                paymentIntentId: paymentIntentId, // Store payment intent ID for refunds
             };
 
             if (idempotencyKey) newOrder.idempotencyKey = idempotencyKey;
@@ -291,6 +294,21 @@ export class OrderService {
             // Update the order status to CANCELLED
             const orderId = (order as any)._id as mongoose.Types.ObjectId;
             const updated = await orderModel.update(orderId, { status: OrderStatus.CANCELLED });
+
+            // Process refund if paymentIntentId exists
+            if ((order as any).paymentIntentId) {
+                try {
+                    logger.info(`Processing refund for order ${orderId}, payment intent: ${(order as any).paymentIntentId}`);
+                    await paymentService.refundPayment((order as any).paymentIntentId);
+                    logger.info(`Refund processed successfully for order ${orderId}`);
+                } catch (refundError) {
+                    logger.error('Failed to process refund:', refundError);
+                    // Continue with cancellation even if refund fails - admin can handle manually
+                    // You may want to update order with a "refund_pending" flag here
+                }
+            } else {
+                logger.warn(`No payment intent ID found for order ${orderId} - skipping refund`);
+            }
 
             // Cancel linked jobs for this order (best-effort). Do this before emitting order.updated
             try {

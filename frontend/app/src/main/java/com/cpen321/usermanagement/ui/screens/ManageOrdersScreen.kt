@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.cpen321.usermanagement.data.local.models.Order
@@ -54,6 +55,7 @@ fun ManageOrdersScreen(
 ) {
     val uiState by profileViewModel.uiState.collectAsState()
     val snackBarHostState = remember { SnackbarHostState() }
+    val appCtx = LocalContext.current.applicationContext
     
     //orderUI state collection
     val orderUi by orderViewModel.uiState.collectAsState()
@@ -64,6 +66,40 @@ fun ManageOrdersScreen(
     // Initial load of orders when screen opens
     LaunchedEffect(Unit) {
         orderViewModel.refreshAllOrders()
+    }
+
+    // Listen for order.updated socket events to show snackbar
+    LaunchedEffect(true) {
+        val entry = EntryPointAccessors.fromApplication(appCtx, SocketClientEntryPoint::class.java)
+        val socketClient = entry.socketClient()
+
+        socketClient.events.collect { ev ->
+            when (ev.name) {
+                "order.updated" -> {
+                    val orderData = when {
+                        ev.payload == null -> null
+                        ev.payload.has("order") -> ev.payload.optJSONObject("order")
+                        else -> ev.payload
+                    }
+
+                    val orderStatus = orderData?.optString("status")
+                    
+                    val message = when (orderStatus) {
+                        "CANCELLED" -> "Order cancelled successfully. Refund has been processed."
+                        else -> null
+                    }
+
+                    message?.let {
+                        launch {
+                            snackBarHostState.showSnackbar(
+                                message = it,
+                                duration = SnackbarDuration.Long
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     ManageOrdersContent(
@@ -215,7 +251,8 @@ fun OrderListItem(
                         OrderStatus.COMPLETED -> MaterialTheme.colorScheme.primary
                         OrderStatus.CANCELLED -> MaterialTheme.colorScheme.error
                         OrderStatus.IN_STORAGE -> MaterialTheme.colorScheme.tertiary
-                        else -> MaterialTheme.colorScheme.secondary
+                        OrderStatus.PENDING -> MaterialTheme.colorScheme.onSurface // Better visibility for pending
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
                 )
             }
@@ -274,7 +311,8 @@ fun ManageOrderSheet(
                             OrderStatus.COMPLETED -> MaterialTheme.colorScheme.primary
                             OrderStatus.CANCELLED -> MaterialTheme.colorScheme.error
                             OrderStatus.IN_STORAGE -> MaterialTheme.colorScheme.tertiary
-                            else -> MaterialTheme.colorScheme.secondary
+                            OrderStatus.PENDING -> MaterialTheme.colorScheme.onSurface // Better visibility for pending
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
                         },
                         fontWeight = FontWeight.Bold
                     )

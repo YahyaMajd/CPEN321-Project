@@ -149,7 +149,7 @@ fun StudentMainScreen(
                     }
                 }
                 "order.updated" -> {
-                    // Show snackbar notification when order is completed
+                    // Show snackbar notification when order status changes
                     val orderData = when {
                         ev.payload == null -> null
                         ev.payload.has("order") -> ev.payload.optJSONObject("order")
@@ -158,10 +158,16 @@ fun StudentMainScreen(
 
                     val orderStatus = orderData?.optString("status")
                     
-                    if (orderStatus == "COMPLETED") {
+                    val message = when (orderStatus) {
+                        "COMPLETED" -> "🎉 Order completed! Thank you for using our service."
+                        "CANCELLED" -> "Order cancelled successfully. Refund has been processed."
+                        else -> null
+                    }
+                    
+                    message?.let {
                         launch {
                             snackBarHostState.showSnackbar(
-                                message = "🎉 Order completed! Thank you for using our service.",
+                                message = it,
                                 duration = SnackbarDuration.Long
                             )
                         }
@@ -299,10 +305,10 @@ private fun MainContent(
                 onDismiss = { showCreateOrderSheet = false },
                 orderViewModel = orderViewModel,
                 paymentRepository = PaymentRepository(RetrofitClient.paymentInterface),
-                onSubmitOrder = { orderRequest ->
+                onSubmitOrder = { orderRequest, paymentIntentId ->
                     // Handle order submission with repository
                     coroutineScope.launch {
-                        val result = orderViewModel.submitOrder(orderRequest)
+                        val result = orderViewModel.submitOrder(orderRequest, paymentIntentId)
                         result.onSuccess { order ->
                             println("Order submitted successfully: $order")
                             // Order is now set in repository._activeOrder, StatusPanel will show it

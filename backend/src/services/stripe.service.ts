@@ -106,6 +106,33 @@ export class StripeService {
     }
 
     /**
+     * Refund a payment intent
+     */
+    async refundPayment(paymentIntentId: string, amount?: number): Promise<PaymentResult> {
+        try {
+            const stripe = this.initializeStripe();
+            
+            // Create refund for the payment intent
+            const refund = await stripe.refunds.create({
+                payment_intent: paymentIntentId,
+                amount: amount ? Math.round(amount * 100) : undefined, // Convert to cents if partial refund
+            });
+
+            logger.info(`Refund created: ${refund.id} for payment intent: ${paymentIntentId}`);
+
+            return {
+                paymentId: refund.id,
+                status: refund.status === 'succeeded' ? PaymentStatus.SUCCEEDED : PaymentStatus.PENDING,
+                amount: refund.amount / 100,
+                currency: refund.currency.toUpperCase(),
+            };
+        } catch (error: any) {
+            logger.error('Error creating refund:', error);
+            throw new Error(`Failed to refund payment: ${error.message || error}`);
+        }
+    }
+
+    /**
      * Map Stripe payment intent status to our PaymentIntentStatus
      */
     private mapStripeStatusToOur(stripeStatus: string): PaymentIntentStatus {

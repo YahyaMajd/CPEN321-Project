@@ -69,10 +69,10 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-    suspend fun submitOrder(orderRequest: OrderRequest): Result<Order> {
+    suspend fun submitOrder(orderRequest: OrderRequest, paymentIntentId: String? = null): Result<Order> {
         _isSubmitting.value = true
         return try {
-            val result = repository.submitOrder(orderRequest)
+            val result = repository.submitOrder(orderRequest, paymentIntentId)
             result
         } catch (e: Exception) {
             Result.failure(e)

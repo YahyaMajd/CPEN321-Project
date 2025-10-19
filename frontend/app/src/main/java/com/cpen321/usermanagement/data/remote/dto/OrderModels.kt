@@ -15,7 +15,8 @@ data class CreateOrderRequest(
     val studentAddress: Address,
     val warehouseAddress: Address,
     val pickupTime: String, // ISO string format
-    val returnTime: String  // ISO string format
+    val returnTime: String,  // ISO string format
+    val paymentIntentId: String? = null // Stripe payment intent ID for refunds
 )
 
 data class CancelOrderRequest(

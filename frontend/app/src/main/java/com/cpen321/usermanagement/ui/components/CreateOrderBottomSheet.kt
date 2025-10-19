@@ -33,7 +33,7 @@ import java.util.*
 @Composable
 fun CreateOrderBottomSheet(
     onDismiss: () -> Unit,
-    onSubmitOrder: (OrderRequest) -> Unit,
+    onSubmitOrder: (OrderRequest, String?) -> Unit, // Added paymentIntentId parameter
     orderViewModel: OrderViewModel,
     paymentRepository: PaymentRepository,
     modifier: Modifier = Modifier
@@ -225,8 +225,8 @@ fun CreateOrderBottomSheet(
                                             paymentResult.fold(
                                                 onSuccess = { payment ->
                                                     if (payment.status == "SUCCEEDED") {
-                                                        // Submit order to backend (UI-level guard prevents double-call)
-                                                        onSubmitOrder(order)
+                                                        // Submit order to backend with payment intent ID
+                                                        onSubmitOrder(order, intent.id)
                                                         currentStep = OrderCreationStep.ORDER_CONFIRMATION
                                                         // keep isSubmitting=true until sheet closes to avoid re-submits
                                                     } else {
