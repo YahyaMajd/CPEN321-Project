@@ -11,16 +11,45 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.cpen321.usermanagement.data.remote.api.UserInterface
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import com.cpen321.usermanagement.data.remote.dto.UpdateProfileRequest
 
+@AndroidEntryPoint
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
+    @Inject
+    lateinit var userInterface: UserInterface  // Now you can access updateProfile()
     private val CHANNEL_ID = "default_channel"
     private val TAG = "MyFCM"
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         Log.d(TAG, "FCM new token: $token")
-        // If you have a backend, send token there.
+        sendTokenToBackend(token)
+    }
+
+    private fun sendTokenToBackend(token: String) {
+        Log.d(TAG, "Sending token to backend: $token")
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val updateRequest = UpdateProfileRequest(fcmToken = token)
+                val response = userInterface.updateProfile(updateRequest)
+
+                if (response.isSuccessful) {
+                    Log.d(TAG, "FCM token updated successfully on backend.")
+                } else {
+                    Log.e(TAG, "Failed to update FCM token on backend: ${response.errorBody()?.string()}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating FCM token on backend", e)
+            }
+        }
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {

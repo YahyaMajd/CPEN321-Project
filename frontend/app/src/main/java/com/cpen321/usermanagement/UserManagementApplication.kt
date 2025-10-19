@@ -11,7 +11,7 @@ import androidx.core.app.NotificationManagerCompat
 class UserManagementApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
             "default_channel",

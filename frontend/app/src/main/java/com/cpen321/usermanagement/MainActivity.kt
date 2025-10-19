@@ -41,9 +41,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        setContent {
+            UserManagementTheme {
+                UserManagementApp()
+            }
+        }
 
         Log.d("MyFCM", "Android SDK: ${Build.VERSION.SDK_INT}")
-
 
         // Fetch FCM token
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
@@ -52,7 +56,7 @@ class MainActivity : ComponentActivity() {
                 return@addOnCompleteListener
             }
             val token = task.result
-            Log.d("MyFCM", "Current FCM jhsasdhjbjhab token: $token")
+            Log.d("MyFCM", "Current FCM token: $token")
         }
 
         // Request notification permission 
@@ -76,12 +80,6 @@ class MainActivity : ComponentActivity() {
                     Log.d("MyFCM", "Launching permission request")
                     requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
-            }
-        }
-
-        setContent {
-            UserManagementTheme {
-                UserManagementApp()
             }
         }
     }
