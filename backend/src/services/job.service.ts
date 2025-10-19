@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { jobModel } from "../models/job.model";
 import { orderModel } from "../models/order.model";
+import { userModel } from "../models/user.model";
 import { 
     CreateJobRequest, 
     CreateJobResponse, 
@@ -19,6 +20,32 @@ import { getIo, emitToRooms } from "../socket";
 import logger from "../utils/logger.util";
 
 export class JobService {
+    // Helper to add credits to mover when job is completed
+    private async addCreditsToMover(job: any) {
+        if (!job.moverId) {
+            logger.warn('No mover assigned to job, skipping credits');
+            return;
+        }
+
+        try {
+            // Extract moverId - handle both populated document and ObjectId
+            const moverObjectId = (job.moverId as any)?._id ?? job.moverId;
+            const mover = await userModel.findById(moverObjectId);
+            
+            if (mover && mover.userRole === 'MOVER') {
+                const currentCredits = mover.credits || 0;
+                const newCredits = currentCredits + job.price;
+                await userModel.update(moverObjectId, { credits: newCredits });
+                logger.info(`Added ${job.price} credits to mover ${moverObjectId}. New balance: ${newCredits}`);
+            } else {
+                logger.warn(`Mover ${moverObjectId} not found or not a MOVER role`);
+            }
+        } catch (creditErr) {
+            logger.error('Failed to add credits to mover:', creditErr);
+            // Don't fail the job completion if credit update fails
+        }
+    }
+
     // Helper to emit job.created for a created job
     private emitJobCreated(createdJob: any, meta?: any) {
         try {
@@ -442,6 +469,10 @@ export class JobService {
                 logger.debug(`Found job for COMPLETED flow: ${JSON.stringify(job)}`);
                 const rawOrderId: any = (job as any).orderId?._id ?? (job as any).orderId;
                 logger.info(`Attempting to update linked order status after job completion for orderId=${rawOrderId}`);
+                
+                // Add credits to mover when job is completed
+                await this.addCreditsToMover(updatedJob);
+                
                 try {
                     if (job.jobType === JobType.STORAGE) {
                         const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.IN_STORAGE });
@@ -662,6 +693,9 @@ export class JobService {
             if (job.status !== JobStatus.AWAITING_STUDENT_CONFIRMATION) throw new Error('Job must be awaiting student confirmation');
 
             const updatedJob = await jobModel.update(job._id, { status: JobStatus.COMPLETED, updatedAt: new Date() });
+
+            // Add credits to mover when job is completed
+            await this.addCreditsToMover(updatedJob);
 
             // Update order status to COMPLETED
             try {

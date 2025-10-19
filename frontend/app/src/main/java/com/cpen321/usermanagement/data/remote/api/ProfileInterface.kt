@@ -28,6 +28,11 @@ interface UserInterface {
     suspend fun deleteProfile(
         @Header("Authorization") authHeader: String
     ) : Response<ApiResponse<Unit>>
+
+    @POST("user/cash-out")
+    suspend fun cashOut(
+        @Header("Authorization") authHeader: String
+    ): Response<ApiResponse<ProfileData>>
 }
 
 interface ImageInterface {

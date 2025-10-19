@@ -138,4 +138,32 @@ class ProfileViewModel @Inject constructor(
             }
         }
     }
+
+    fun cashOut(onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isSavingProfile = true,
+                errorMessage = null,
+                successMessage = null
+            )
+
+            val result = profileRepository.cashOut()
+            if (result.isSuccess) {
+                val updatedUser = result.getOrNull()!!
+                _uiState.value = _uiState.value.copy(
+                    isSavingProfile = false,
+                    user = updatedUser,
+                    successMessage = "Credits cashed out successfully!"
+                )
+                onSuccess()
+            } else {
+                val msg = result.exceptionOrNull()?.message ?: "Failed to cash out credits"
+                _uiState.value = _uiState.value.copy(
+                    isSavingProfile = false,
+                    errorMessage = msg
+                )
+                onError(msg)
+            }
+        }
+    }
 }

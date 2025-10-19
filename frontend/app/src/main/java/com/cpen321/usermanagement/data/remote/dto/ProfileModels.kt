@@ -28,7 +28,8 @@ data class User(
     val availability: Map<String, List<List<String>>>? = null, // Changed from List<Int> to List<String> for "HH:mm" format
     val capacity: Float? = null,
     val carType: String? = null,
-    val plateNumber: String? = null
+    val plateNumber: String? = null,
+    val credits: Float? = null // Credits earned from completed jobs (mover only)
 )
 
 data class UploadImageData(

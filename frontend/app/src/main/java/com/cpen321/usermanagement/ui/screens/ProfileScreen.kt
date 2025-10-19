@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.cpen321.usermanagement.R
+import com.cpen321.usermanagement.data.remote.dto.User
 import com.cpen321.usermanagement.ui.components.MessageSnackbar
 import com.cpen321.usermanagement.ui.components.MessageSnackbarState
 import com.cpen321.usermanagement.ui.viewmodels.AuthViewModel
@@ -61,7 +63,8 @@ private data class ProfileScreenCallbacks(
     val onDeleteDialogDismiss: () -> Unit,
     val onDeleteDialogConfirm: () -> Unit,
     val onSuccessMessageShown: () -> Unit,
-    val onErrorMessageShown: () -> Unit
+    val onErrorMessageShown: () -> Unit,
+    val onCashOutClick: () -> Unit
 )
 
 @Composable
@@ -83,6 +86,7 @@ fun ProfileScreen(
     LaunchedEffect(Unit) {
         profileViewModel.clearSuccessMessage()
         profileViewModel.clearError()
+        profileViewModel.loadProfile()
     }
 
     ProfileContent(
@@ -116,7 +120,10 @@ fun ProfileScreen(
                 actions.onAccountDeleted()
             },
             onSuccessMessageShown = profileViewModel::clearSuccessMessage,
-            onErrorMessageShown = profileViewModel::clearError
+            onErrorMessageShown = profileViewModel::clearError,
+            onCashOutClick = {
+                profileViewModel.cashOut()
+            }
         )
     )
 }
@@ -152,10 +159,12 @@ private fun ProfileContent(
             paddingValues = paddingValues,
             isLoading = uiState.isLoadingProfile,
             userRole = userRole,
+            user = uiState.user,
             onManageProfileClick = callbacks.onManageProfileClick,
             onManageOrdersClick = callbacks.onManageOrdersClick,
             onDeleteAccountClick = callbacks.onDeleteAccountClick,
-            onSignOutClick = callbacks.onSignOutClick
+            onSignOutClick = callbacks.onSignOutClick,
+            onCashOutClick = callbacks.onCashOutClick
         )
     }
 
@@ -199,10 +208,12 @@ private fun ProfileBody(
     paddingValues: PaddingValues,
     isLoading: Boolean,
     userRole: String?,
+    user: User?,
     onManageProfileClick: () -> Unit,
     onManageOrdersClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
     onSignOutClick: () -> Unit,
+    onCashOutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -220,10 +231,12 @@ private fun ProfileBody(
             else -> {
                 ProfileMenuItems(
                     userRole = userRole,
+                    user = user,
                     onManageProfileClick = onManageProfileClick,
                     onManageOrdersClick  = onManageOrdersClick,
                     onSignOutClick = onSignOutClick,
-                    onDeleteAccountClick = onDeleteAccountClick
+                    onDeleteAccountClick = onDeleteAccountClick,
+                    onCashOutClick = onCashOutClick
                 )
             }
         }
@@ -233,10 +246,12 @@ private fun ProfileBody(
 @Composable
 private fun ProfileMenuItems(
     userRole: String?,
+    user: User?,
     onManageProfileClick: () -> Unit,
     onManageOrdersClick:  () -> Unit,
     onSignOutClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
+    onCashOutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val spacing = LocalSpacing.current
@@ -254,6 +269,14 @@ private fun ProfileMenuItems(
             onManageProfileClick = onManageProfileClick,
             onManageOrdersClick  = onManageOrdersClick
         )
+
+        // Credits section for movers only
+        if (userRole?.uppercase() == "MOVER") {
+            CreditsSection(
+                credits = user?.credits ?: 0f,
+                onCashOutClick = onCashOutClick
+            )
+        }
 
         AccountSection(
             onSignOutClick =  onSignOutClick,
@@ -294,6 +317,51 @@ private fun AccountSection(
     ) {
         SignOutButton (onClick = onSignOutClick)
         DeleteAccountButton(onClick = onDeleteAccountClick)
+    }
+}
+
+@Composable
+private fun CreditsSection(
+    credits: Float,
+    onCashOutClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.medium)
+    ) {
+        // Credits display
+        androidx.compose.material3.Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = androidx.compose.material3.CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(LocalSpacing.current.large),
+                verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.small)
+            ) {
+                Text(
+                    text = "Earned Credits",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Text(
+                    text = "$${String.format("%.2f", credits)}",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+
+        // Cash out button
+        Button(
+            fullWidth = true,
+            onClick = onCashOutClick,
+        ) {
+            Text("Cash Out")
+        }
     }
 }
 
