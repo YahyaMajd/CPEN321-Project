@@ -30,6 +30,10 @@ const userSchema = new Schema<IUser>(
       lowercase: true,
       trim: true,
     },
+    fcmToken: {
+      type: String,
+      required: false, 
+    },
     name: {
       type: String,
       required: true,

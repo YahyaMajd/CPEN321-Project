@@ -1,23 +1,87 @@
 import admin from '../config/firebase';
 import { NotificationPayload } from '../types/notification.types';
+import logger from "../utils/logger.util";
+import mongoose from 'mongoose';
+import { JobStatus } from '../types/job.type';
+import { jobModel } from "../models/job.model";``
 
 class NotificationService {
-  async sendPushNotification(payload: NotificationPayload) {
-    const { token, title, body } = payload;
+  async sendNotificationToDevice(payload: NotificationPayload) {
+    const message: admin.messaging.Message = {
+      token: payload.fcmToken,
+      notification: {
+        title: payload.title,
+        body: payload.body,
+      },
+      data: payload.data,
+    };
 
     try {
-      const message = {
-        notification: { title, body },
-        token,
+      const response = await admin.messaging().send(message);
+      logger.info(`Successfully sent notification: ${response}`);
+    } catch (error: any) {
+      logger.error(`Error sending notification${payload.fcmToken}: ${error}`);
+      if (
+        error.code === "messaging/registration-token-not-registered" ||
+        error.code === "messaging/invalid-argument"
+      ) {
+        logger.warn(`Token ${payload.fcmToken} is invalid or expired`);
+      }
+    }
+  }
+
+  // TODO: figure out where to call this function
+  // sends job status update notifications to student
+  async sendJobStatusNotification(jobId: mongoose.Types.ObjectId, status: JobStatus.ACCEPTED 
+        | JobStatus.PICKED_UP 
+        | JobStatus.COMPLETED) {
+    try {
+      const job = await jobModel.findById(jobId);
+      if (!job) {
+        logger.warn(`Job not found for id ${jobId}`);
+        return;
+      }
+
+      const student = job.studentId as any; 
+      if (!student?.fcmToken) {
+        logger.warn(`No FCM token found for student ${student._id}`);
+        return;
+      }
+
+      let title = "";
+      let body = "";
+
+      switch (status) {
+        case JobStatus.ACCEPTED:
+          title = "Job Accepted";
+          body = "A mover has accepted your job!";
+          break;
+        case JobStatus.PICKED_UP:
+          title = "Job Picked Up";
+          body = "Your items have been picked up and are on the way to our warehouse!";
+          break;
+        case JobStatus.COMPLETED:
+          title = "Job Completed";
+          body = "Your job has been successfully completed!";
+          break;
+      }
+
+      const notification: NotificationPayload = {
+        fcmToken: student.fcmToken,
+        title,
+        body,
+        data: {
+          jobId: job._id.toString(),
+          status,
+        },
       };
 
-      await admin.messaging().send(message);
-      console.log(`✅ Notification sent to ${token}`);
-    } catch (error) {
-      console.error('❌ Failed to send notification:', error);
+      await this.sendNotificationToDevice(notification);
+      logger.info(`Notification sent to student ${student._id} for job ${job._id} with status ${status}`);
+    } catch (error: any) {
+      logger.error("Failed to send job status notification:", error);
     }
   }
 }
 
-export default new NotificationService();
-
+export const notificationService = new NotificationService();

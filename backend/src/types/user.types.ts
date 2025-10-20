@@ -18,6 +18,7 @@ export interface IUser extends Document {
   userRole?: UserRole;  // Optional - set after signup
   googleId: string;
   email: string;
+  fcmToken?: string;
   name: string;
   profilePicture?: string;
   bio?: string;

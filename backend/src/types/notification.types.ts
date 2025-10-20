@@ -1,5 +1,6 @@
 export interface NotificationPayload {
-  title: string;
-  body: string;
-  token: string;
+  fcmToken: string;             
+  title: string;             
+  body: string;              
+  data?: { [key: string]: string }; // Optional custom data
 }

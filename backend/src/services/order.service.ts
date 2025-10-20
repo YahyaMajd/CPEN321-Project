@@ -6,7 +6,6 @@ import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CancelOrderResponse
 import logger from "../utils/logger.util";
 import { emitToRooms } from "../socket";
 import { jobService } from "./job.service";
-import { log } from "console";
 import { JobType, CreateJobRequest, JobStatus } from "../types/job.type";
 import ca from "zod/v4/locales/ca.js";
 
