@@ -113,4 +113,3 @@ export type CreateJobResponse = {
     id: string;
     message: string;
 };
-

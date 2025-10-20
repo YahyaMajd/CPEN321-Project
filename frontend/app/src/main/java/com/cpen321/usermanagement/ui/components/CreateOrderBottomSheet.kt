@@ -298,104 +298,98 @@ private fun AddressCaptureStep(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
-    // Address fields
-    var streetAddress by remember { mutableStateOf("123 Main St") }
-    var city by remember { mutableStateOf("Vancouver") }
-    var province by remember { mutableStateOf("BC") }
-    var postalCode by remember { mutableStateOf("V6T 1Z4") }
-    var isGeocoding by remember { mutableStateOf(false) }
-    
+    // Single address field with autocomplete
+    var addressInput by remember { mutableStateOf("") }
+    var selectedAddress by remember { mutableStateOf<SelectedAddress?>(null) }
+    var isValidating by remember { mutableStateOf(false) }
+
     Column {
         Text(
             text = "We need your pickup address to calculate pricing",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        Text(
+            text = "Currently serving Greater Vancouver, BC only",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(bottom = 24.dp)
         )
         
-        // Address form
-        OutlinedTextField(
-            value = streetAddress,
-            onValueChange = { streetAddress = it },
-            label = { Text("Street Address") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+        // Address autocomplete field
+        AddressAutocompleteField(
+            value = addressInput,
+            onValueChange = { 
+                addressInput = it
+                // Clear selected address when user starts typing again
+                if (selectedAddress != null && it != selectedAddress?.formattedAddress) {
+                    selectedAddress = null
+                }
+            },
+            onAddressSelected = { address ->
+                selectedAddress = address
+                addressInput = address.formattedAddress
+            },
+            label = "Enter Address",
+            placeholder = "e.g. 123 Main St, Vancouver, BC",
+            enabled = !isValidating,
+            modifier = Modifier.fillMaxWidth()
         )
         
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            OutlinedTextField(
-                value = city,
-                onValueChange = { city = it },
-                label = { Text("City") },
-                modifier = Modifier.weight(1f),
-                singleLine = true
-            )
-            
-            OutlinedTextField(
-                value = province,
-                onValueChange = { province = it },
-                label = { Text("Province") },
-                modifier = Modifier.weight(0.5f),
-                singleLine = true
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        OutlinedTextField(
-            value = postalCode,
-            onValueChange = { postalCode = it },
-            label = { Text("Postal Code") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
+        Spacer(modifier = Modifier.height(8.dp))
         
         Spacer(modifier = Modifier.height(32.dp))
         
         Button(
             onClick = {
-                val fullAddress = "$streetAddress, $city, $province $postalCode"
-                if (streetAddress.isBlank() || city.isBlank()) {
-                    onError("Please fill in all address fields")
+                if (selectedAddress == null) {
+                    onError("Please select an address from the suggestions")
                     return@Button
                 }
                 
-                isGeocoding = true
+                isValidating = true
                 coroutineScope.launch {
                     try {
-                        val coordinates = LocationUtils.geocodeAddress(context, fullAddress)
-                            ?: LocationUtils.getFallbackCoordinates(fullAddress)
-
-                        val address = Address(
-                            lat = coordinates.latitude,
-                            lon = coordinates.longitude,
-                            formattedAddress = fullAddress
+                        // Validate that the selected address is within Vancouver area
+                        val validationResult = LocationUtils.validateAndGeocodeAddress(
+                            context, 
+                            selectedAddress!!.formattedAddress
                         )
-                        onAddressConfirmed(address)
+
+                        if (validationResult.isValid && validationResult.coordinates != null) {
+                            // Address is valid and within Vancouver area
+                            val address = Address(
+                                lat = selectedAddress!!.latitude,
+                                lon = selectedAddress!!.longitude,
+                                formattedAddress = selectedAddress!!.formattedAddress
+                            )
+                            onAddressConfirmed(address)
+                        } else {
+                            // Address is invalid or outside service area
+                            onError(validationResult.errorMessage ?: "Invalid address. Please select a valid address within Greater Vancouver.")
+                            isValidating = false
+                        }
                     } catch (e: Exception) {
-                        onError("Failed to process address. Please check and try again.")
-                    } finally {
-                        isGeocoding = false
+                        onError("Failed to validate address. Please try again.")
+                        isValidating = false
                     }
                 }
             },
-            enabled = !isGeocoding && streetAddress.isNotBlank() && city.isNotBlank(),
+            enabled = !isValidating && selectedAddress != null,
             modifier = Modifier.fillMaxWidth()
         ) {
-            if (isGeocoding) {
+            if (isValidating) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Processing...")
+                    Text("Validating Address...")
                 }
             } else {
                 Text("Get Pricing")
