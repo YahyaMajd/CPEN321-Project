@@ -33,6 +33,7 @@ import com.cpen321.usermanagement.ui.viewmodels.ProfileUiState
 import com.cpen321.usermanagement.ui.viewmodels.ProfileViewModel
 import kotlinx.coroutines.delay
 import com.cpen321.usermanagement.di.SocketClientEntryPoint
+import com.cpen321.usermanagement.utils.TimeUtils
 
 private data class MoverJobHistoryScreenData(
     val completedJobs: List<Job>,
@@ -302,7 +303,7 @@ fun JobDetailsSheet(
                 HorizontalDivider()
 
                 // Dates
-                DetailRow(label = "Scheduled Time", value = job.scheduledTime.format(DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a")))
+                DetailRow(label = "Scheduled Time", value = TimeUtils.formatLocalDateTimeToPacific(job.scheduledTime))
             }
         },
         confirmButton = {

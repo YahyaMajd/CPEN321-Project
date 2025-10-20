@@ -47,6 +47,11 @@ android {
         compose = true
         buildConfig = true // need to build the app (no just sync)
     }
+    packaging {
+        resources {
+            excludes.add("META-INF/DEPENDENCIES")
+        }
+    }
 }
 
 dependencies {

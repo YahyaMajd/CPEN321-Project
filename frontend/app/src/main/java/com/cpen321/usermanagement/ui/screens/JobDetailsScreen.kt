@@ -1,5 +1,7 @@
 package com.cpen321.usermanagement.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,10 +13,12 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -24,6 +28,8 @@ import com.cpen321.usermanagement.data.local.models.JobType
 import com.cpen321.usermanagement.ui.viewmodels.JobViewModel
 import com.cpen321.usermanagement.ui.components.OrderMapView
 import com.cpen321.usermanagement.data.remote.dto.Address
+import com.cpen321.usermanagement.utils.TimeUtils
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,6 +98,8 @@ private fun JobDetailsContent(
     onUpdateStatus: (JobStatus) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -195,7 +203,7 @@ private fun JobDetailsContent(
                 JobInfoRow(
                     icon = Icons.Default.AccessTime,
                     label = "Scheduled",
-                    value = job.scheduledTime.format(DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a"))
+                    value = TimeUtils.formatLocalDateTimeToPacific(job.scheduledTime)
                 )
             }
         }
@@ -264,7 +272,8 @@ private fun JobDetailsContent(
                         Text(
                             text = "Dropoff Location",
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(top = 8.dp)
                         )
                         Text(
                             text = job.dropoffAddress.formattedAddress,
@@ -372,6 +381,41 @@ private fun JobDetailsContent(
             
             else -> {
                 // No action needed for other statuses
+            }
+        }
+
+        // Calendar event link for movers
+        if (job.status == JobStatus.ACCEPTED || job.status == JobStatus.PICKED_UP) {
+            val zoned = job.scheduledTime.atZone(ZoneId.of("UTC")).withZoneSameInstant(ZoneId.of("America/Los_Angeles"))
+            val startStr = zoned.format(DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss"))
+            val endStr = zoned.plusMinutes(15).format(DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss"))
+            val title = Uri.encode("DormDash ${job.jobType.value} Job")
+            val details = Uri.encode("Job Details for ${job.jobType.value} Job")
+            val location = Uri.encode(job.pickupAddress.formattedAddress)
+
+            val calendarEventUrl = "https://www.google.com/calendar/render?action=TEMPLATE" +
+                "&text=$title" +
+                "&dates=$startStr/$endStr" +
+                "&details=$details" +
+                "&location=$location" +
+                "&ctz=America/Los_Angeles"
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(calendarEventUrl))
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Event,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add to Calendar")
             }
         }
     }

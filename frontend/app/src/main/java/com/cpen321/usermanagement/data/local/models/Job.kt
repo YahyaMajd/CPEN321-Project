@@ -14,6 +14,7 @@ data class Job(
     val price: Double,
     val pickupAddress: Address,
     val dropoffAddress: Address,
+    val calendarEventLink: String ?= null,
     val scheduledTime: LocalDateTime,
     val createdAt: LocalDateTime? = null,
     val updatedAt: LocalDateTime? = null

@@ -7,7 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.cpen321.usermanagement.data.local.models.Job
-import java.time.format.DateTimeFormatter
+import com.cpen321.usermanagement.utils.TimeUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,13 +33,13 @@ fun CurrentJobCard(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = job.scheduledTime.format(DateTimeFormatter.ofPattern("HH:mm")),
+                    text = TimeUtils.formatLocalDateTimeTimeOnlyToPacific(job.scheduledTime),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = job.scheduledTime.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                text = TimeUtils.formatLocalDateTimeDateOnlyToPacific(job.scheduledTime),
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
@@ -101,7 +101,7 @@ fun AvailableJobCard(
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                text = job.scheduledTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")),
+                text = "${TimeUtils.formatLocalDateTimeDateOnlyToPacific(job.scheduledTime)} ${TimeUtils.formatLocalDateTimeTimeOnlyToPacific(job.scheduledTime)}",
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(modifier = Modifier.height(8.dp))

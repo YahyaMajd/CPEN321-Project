@@ -56,6 +56,7 @@ export type Job = {
     pickupAddress: Address;
     dropoffAddress: Address;
     scheduledTime: string;
+    calendarEventLink?: string;
     createdAt: Date;
     updatedAt: Date;
     verificationRequestedAt?: Date;
@@ -73,6 +74,7 @@ export type JobResponse = {
     pickupAddress: Address;
     dropoffAddress: Address;
     scheduledTime: string;
+    calendarEventLink?: string;
     createdAt: Date;
     updatedAt: Date;
 };
