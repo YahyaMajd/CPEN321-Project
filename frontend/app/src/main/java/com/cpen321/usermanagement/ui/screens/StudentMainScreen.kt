@@ -43,7 +43,9 @@ import com.cpen321.usermanagement.ui.theme.LocalSpacing
 import com.cpen321.usermanagement.ui.components.OrderPanel
 import com.cpen321.usermanagement.ui.components.StatusPanel
 import com.cpen321.usermanagement.ui.components.CreateOrderBottomSheet
+import com.cpen321.usermanagement.ui.components.CreateReturnJobBottomSheet
 import com.cpen321.usermanagement.data.local.models.OrderRequest
+import com.cpen321.usermanagement.data.local.models.CreateReturnJobRequest
 import com.cpen321.usermanagement.data.local.models.Order
 import com.cpen321.usermanagement.ui.viewmodels.OrderViewModel
 import com.cpen321.usermanagement.data.repository.PaymentRepository
@@ -252,6 +254,7 @@ private fun MainContent(
     modifier: Modifier = Modifier
 ) {
     var showCreateOrderSheet by remember { mutableStateOf(false) }
+    var showCreateReturnJobSheet by remember { mutableStateOf(false) }
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
     
@@ -274,23 +277,7 @@ private fun MainContent(
             studentJobs = studentJobs,
             onCreateOrderClick = { showCreateOrderSheet = true },
             onCreateReturnJobClick = {
-                // Launch the createReturnJob flow and show feedback
-                coroutineScope.launch {
-                    orderViewModel.createReturnJob { err ->
-                        if (err == null) {
-                            // Refresh active order and notify user
-                            orderViewModel.refreshActiveOrder()
-                            coroutineScope.launch {
-                                snackBarHostState.showSnackbar("Return job created", duration = SnackbarDuration.Short)
-                            }
-
-                        } else {
-                            coroutineScope.launch {
-                                snackBarHostState.showSnackbar("Failed to create return job: ${err.message}", duration = SnackbarDuration.Long)
-                            }
-                        }
-                    }
-                }
+                showCreateReturnJobSheet = true
             }
         )
     }
@@ -321,6 +308,47 @@ private fun MainContent(
                 }
             )
         }
+    }
+    
+    // Create Return Job Bottom Sheet
+    if (showCreateReturnJobSheet && activeOrder != null) {
+        CreateReturnJobBottomSheet(
+            activeOrder = activeOrder,
+            paymentRepository = PaymentRepository(RetrofitClient.paymentInterface),
+            onDismiss = { showCreateReturnJobSheet = false },
+            onSubmit = { request, paymentIntentId ->
+                coroutineScope.launch {
+                    try {
+                        val response = orderViewModel.createReturnJob(request)
+                        showCreateReturnJobSheet = false
+                        
+                        // Show appropriate message based on response
+                        val message = when {
+                            response.refundAmount != null && response.refundAmount > 0 -> {
+                                "Return job created! Refund of $${String.format("%.2f", response.refundAmount)} has been processed for early return."
+                            }
+                            response.lateFee != null && response.lateFee > 0 -> {
+                                "Return job created with late fee of $${String.format("%.2f", response.lateFee)}."
+                            }
+                            else -> "Return job created successfully!"
+                        }
+                        
+                        snackBarHostState.showSnackbar(
+                            message = message,
+                            duration = SnackbarDuration.Long
+                        )
+                        
+                        // Refresh active order
+                        orderViewModel.refreshActiveOrder()
+                    } catch (e: Exception) {
+                        snackBarHostState.showSnackbar(
+                            message = "Failed to create return job: ${e.message}",
+                            duration = SnackbarDuration.Long
+                        )
+                    }
+                }
+            }
+        )
     }
 }
 

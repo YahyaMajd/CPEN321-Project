@@ -264,12 +264,6 @@ private fun ProfileMenuItems(
             .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(spacing.medium)
     ) {
-        ProfileSection(
-            userRole = userRole,
-            onManageProfileClick = onManageProfileClick,
-            onManageOrdersClick  = onManageOrdersClick
-        )
-
         // Credits section for movers only
         if (userRole?.uppercase() == "MOVER") {
             CreditsSection(
@@ -277,6 +271,12 @@ private fun ProfileMenuItems(
                 onCashOutClick = onCashOutClick
             )
         }
+
+        ProfileSection(
+            userRole = userRole,
+            onManageProfileClick = onManageProfileClick,
+            onManageOrdersClick  = onManageOrdersClick
+        )
 
         AccountSection(
             onSignOutClick =  onSignOutClick,

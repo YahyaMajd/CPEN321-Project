@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cpen321.usermanagement.data.local.models.Order
 import com.cpen321.usermanagement.data.local.models.OrderRequest
+import com.cpen321.usermanagement.data.local.models.CreateReturnJobRequest
+import com.cpen321.usermanagement.data.local.models.CreateReturnJobResponse
 import com.cpen321.usermanagement.data.repository.OrderRepository
 import com.cpen321.usermanagement.network.SocketClient
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -159,7 +161,7 @@ class OrderViewModel @Inject constructor(
     fun createReturnJob(onDone: (Throwable?) -> Unit = {}) {
         viewModelScope.launch {
             try {
-                repository.createReturnJob()   // suspend
+                repository.createReturnJob(CreateReturnJobRequest())   // suspend with empty request
                 // Update UI state if needed
                 onDone(null)
             } catch (t: Throwable) {
@@ -167,6 +169,11 @@ class OrderViewModel @Inject constructor(
             }
         }
     }
+    
+    suspend fun createReturnJob(request: CreateReturnJobRequest): CreateReturnJobResponse {
+        return repository.createReturnJob(request)
+    }
+    
     // Optionally expose a public method to manually refresh
     // fun refreshActiveOrder() {
     //     if (isFetching.getAndSet(true)) return

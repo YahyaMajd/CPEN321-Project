@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { OrderService } from '../services/order.service';
-import { CreateOrderRequest, CreateOrderResponse, QuoteRequest, GetQuoteResponse, GetAllOrdersResponse, CancelOrderResponse, Order, CreateReturnJobResponse } from '../types/order.types';
+import { CreateOrderRequest, CreateOrderResponse, QuoteRequest, GetQuoteResponse, GetAllOrdersResponse, CancelOrderResponse, Order, CreateReturnJobResponse, CreateReturnJobRequest } from '../types/order.types';
 import mongoose, { mongo, ObjectId } from "mongoose";
 import logger from '../utils/logger.util';
 
@@ -33,7 +33,8 @@ export class OrderController {
         try {
             // Use authenticated user id from req.user (set by auth middleware)
             const studentId = req.user?._id;
-            const result = await this.orderService.createReturnJob(studentId as ObjectId | undefined);
+            const returnJobRequest = req.body as CreateReturnJobRequest;
+            const result = await this.orderService.createReturnJob(studentId as ObjectId | undefined, returnJobRequest);
             res.status(201).json(result);
         } catch (error) {
             // TODO: improve error handling

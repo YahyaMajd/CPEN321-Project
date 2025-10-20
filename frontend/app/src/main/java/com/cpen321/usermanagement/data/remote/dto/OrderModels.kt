@@ -4,6 +4,7 @@ package com.cpen321.usermanagement.data.local.models
 data class OrderRequest(
     val boxQuantities: List<BoxQuantity>,
     val currentAddress: String,
+    val pickupTime: String, // ISO string format with date and time
     val returnDate: String,
     val totalPrice: Double // Price calculated by UI using backend pricing rules
 )
@@ -28,9 +29,16 @@ data class CancelOrderResponse(
     val message: String
 )
 
+data class CreateReturnJobRequest(
+    val returnAddress: Address? = null,
+    val actualReturnDate: String? = null // ISO string format
+)
+
 data class CreateReturnJobResponse(
     val success: Boolean,
-    val message: String
+    val message: String,
+    val lateFee: Double? = null,
+    val refundAmount: Double? = null
 )
 
 // OrderDto.kt

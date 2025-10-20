@@ -2,7 +2,7 @@ import mongoose, { mongo, ObjectId } from "mongoose";
 import { orderModel } from "../models/order.model";
 import { jobModel } from "../models/job.model";
 import {WAREHOUSES} from "../constants/warehouses"
-import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CancelOrderResponse, CreateOrderResponse, CreateReturnJobResponse, Order, OrderStatus, GetAllOrdersResponse, ACTIVE_ORDER_STATUSES } from "../types/order.types";
+import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CancelOrderResponse, CreateOrderResponse, CreateReturnJobResponse, CreateReturnJobRequest, Order, OrderStatus, GetAllOrdersResponse, ACTIVE_ORDER_STATUSES } from "../types/order.types";
 import logger from "../utils/logger.util";
 import { emitToRooms } from "../socket";
 import { jobService } from "./job.service";
@@ -33,10 +33,12 @@ export class OrderService {
 
             // $2 per km ?
             const distancePrice = Number((distanceToWarehouse * 2).toFixed(2));
+            const dailyStorageRate = 5.0; // $5 per day for late returns
 
             return {
                 distancePrice,
                 warehouseAddress: closestWarehouse,
+                dailyStorageRate,
             };
         } catch (error) {
             logger.error("Error in getQuote service:", error);
@@ -188,7 +190,7 @@ export class OrderService {
         }
     }
 
-    async createReturnJob(studentId: ObjectId | undefined): Promise<CreateReturnJobResponse> {
+    async createReturnJob(studentId: ObjectId | undefined, returnJobRequest?: CreateReturnJobRequest): Promise<CreateReturnJobResponse> {
         try {
             const activeOrder = await orderModel.findActiveOrder({
                 studentId,
@@ -214,22 +216,71 @@ export class OrderService {
                 };
             }
 
-            const returnJobRequest: CreateJobRequest = {
+            // Calculate adjustment fee based on actual return date vs expected return date
+            let adjustmentFee = 0;
+            let refundAmount = 0;
+            const expectedReturnDate = new Date(activeOrder.returnTime);
+            const actualReturnDate = returnJobRequest?.actualReturnDate 
+                ? new Date(returnJobRequest.actualReturnDate) 
+                : new Date();
+
+            const daysDifference = Math.ceil((actualReturnDate.getTime() - expectedReturnDate.getTime()) / (1000 * 60 * 60 * 24));
+            const dailyRate = 5.0; // $5 per day
+
+            if (daysDifference > 0) {
+                // Late return: charge extra
+                adjustmentFee = daysDifference * dailyRate;
+                logger.info(`Late return detected: ${daysDifference} days late, fee: $${adjustmentFee}`);
+            } else if (daysDifference < 0) {
+                // Early return: refund
+                const daysEarly = Math.abs(daysDifference);
+                refundAmount = daysEarly * dailyRate;
+                logger.info(`Early return detected: ${daysEarly} days early, refund: $${refundAmount}`);
+            }
+
+            // Use custom return address if provided, otherwise use order's return address or student address
+            const finalReturnAddress = returnJobRequest?.returnAddress 
+                || activeOrder.returnAddress 
+                || activeOrder.studentAddress;
+
+            const returnJobPrice = (activeOrder.price * 0.4) + adjustmentFee; // 40% for return delivery + late fee (if any)
+
+            const returnJobReq: CreateJobRequest = {
                 orderId: activeOrder._id.toString(),
                 studentId: activeOrder.studentId.toString(),
                 jobType: JobType.RETURN,
                 volume: activeOrder.volume,
-                price: activeOrder.price * 0.4, // 40% for return delivery
+                price: returnJobPrice,
                 pickupAddress: activeOrder.warehouseAddress, // Pick up FROM warehouse
-                dropoffAddress: activeOrder.returnAddress || activeOrder.studentAddress, // Deliver TO return address
+                dropoffAddress: finalReturnAddress, // Deliver TO return address
                 scheduledTime: activeOrder.returnTime, // Scheduled for return time
             };
 
-            await jobService.createJob(returnJobRequest);
+            await jobService.createJob(returnJobReq);
             
-            return{
+            // Process refund if early return
+            if (refundAmount > 0 && activeOrder.paymentIntentId) {
+                try {
+                    await paymentService.refundPayment(activeOrder.paymentIntentId, refundAmount);
+                    logger.info(`Processed early return refund of $${refundAmount} for order ${activeOrder._id}`);
+                } catch (refundError) {
+                    logger.error(`Failed to process early return refund: ${refundError}`);
+                    // Continue with job creation even if refund fails
+                }
+            }
+            
+            let message = "Return job created successfully";
+            if (adjustmentFee > 0) {
+                message = `Return job created successfully with late fee of $${adjustmentFee.toFixed(2)}`;
+            } else if (refundAmount > 0) {
+                message = `Return job created successfully. Refund of $${refundAmount.toFixed(2)} has been processed for early return`;
+            }
+            
+            return {
                 success: true,
-                message: "Return job created successfully"
+                message,
+                lateFee: adjustmentFee > 0 ? adjustmentFee : undefined,
+                refundAmount: refundAmount > 0 ? refundAmount : undefined
             }
 
         } catch (error) {

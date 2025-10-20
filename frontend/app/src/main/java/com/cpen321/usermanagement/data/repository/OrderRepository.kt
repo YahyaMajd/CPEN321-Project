@@ -59,12 +59,12 @@ class OrderRepository @Inject constructor(
         val warehouseAddress = warehouseAddr 
             ?: return null // Cannot create order without warehouse address from backend quote
         
-        // Format dates
+        // Format return date - pickup time comes from OrderRequest
         val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
         dateFormat.timeZone = TimeZone.getTimeZone("UTC")
         
         val now = Date()
-        val pickupTime = dateFormat.format(Date(now.time + 24 * 60 * 60 * 1000)) // Tomorrow
+        val pickupTime = orderRequest.pickupTime // Use the pickup time from UI (already in ISO format)
         val returnTime = dateFormat.format(SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault()).parse(orderRequest.returnDate) ?: Date(now.time + 7 * 24 * 60 * 60 * 1000))
         
         return CreateOrderRequest(
@@ -199,19 +199,21 @@ class OrderRepository @Inject constructor(
     /**
      * Clear active order (when starting new order or dismissing completed one)
      */
-     suspend fun cancelOrder() {
+    suspend fun cancelOrder(){
         val response = orderApi.cancelOrder()
         if (!response.isSuccessful) {
             throw Exception("Failed to cancel order: ${response.code()} ${response.message()}")
         }
     }
 
-    suspend fun createReturnJob(){
-        val response =  orderApi.createReturnJob()
+    suspend fun createReturnJob(request: CreateReturnJobRequest): CreateReturnJobResponse {
+        val response = orderApi.createReturnJob(request)
         if (!response.isSuccessful) {
             throw Exception("Failed to create return job: ${response.code()} ${response.message()}")
         }
+        return response.body() ?: throw Exception("Empty response from server")
     }
+    
     /**
      * Complete order (move from active to history only)
      */

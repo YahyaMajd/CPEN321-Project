@@ -4,6 +4,7 @@ import com.cpen321.usermanagement.data.local.models.GetQuoteRequest
 import com.cpen321.usermanagement.data.local.models.GetQuoteResponse
 import com.cpen321.usermanagement.data.local.models.CreateOrderRequest
 import com.cpen321.usermanagement.data.local.models.GetAllOrdersResponse
+import com.cpen321.usermanagement.data.local.models.CreateReturnJobRequest
 import com.cpen321.usermanagement.data.local.models.CreateReturnJobResponse
 import com.cpen321.usermanagement.data.local.models.CancelOrderResponse
 import com.cpen321.usermanagement.data.local.models.Order
@@ -12,6 +13,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+
 
 interface OrderInterface {
     
@@ -22,7 +24,8 @@ interface OrderInterface {
     suspend fun placeOrder(@Body request: CreateOrderRequest): Response<Order>
 
     @POST(value = "order/create-return-Job")
-    suspend fun createReturnJob( ): Response<CreateReturnJobResponse>
+    suspend fun createReturnJob(@Body request: CreateReturnJobRequest): Response<CreateReturnJobResponse>
+    
     @GET("order/all-orders")
     suspend fun getAllOrders(): Response<GetAllOrdersResponse>
 

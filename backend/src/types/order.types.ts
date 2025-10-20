@@ -29,15 +29,24 @@ export const createOrderSchema = z.object({
   paymentIntentId: z.string().optional(), // Stripe payment intent ID for refunds
 });
 
+export const createReturnJobSchema = z.object({
+  returnAddress: addressSchema.optional(), // Optional custom return address
+  actualReturnDate: z.string().datetime().optional(), // Actual return date for late fee calculation
+});
+
 // Request types
 // ------------------------------------------------------------
 export type QuoteRequest = z.infer<typeof quoteSchema>;
 
+export type CreateReturnJobRequest = z.infer<typeof createReturnJobSchema>;
+
 // ToDo: maybe we dont need to send the full address? the user dosnt need to see lat lon
 export type GetQuoteResponse = {
   distancePrice: number,
-  warehouseAddress: Address
+  warehouseAddress: Address,
+  dailyStorageRate: number // Daily storage rate for late return fee calculation
 };
+
 
 export type CreateOrderRequest = z.infer<typeof createOrderSchema>;
 
@@ -48,6 +57,8 @@ export type CreateOrderResponse = Order & {
 export type CreateReturnJobResponse = {
     success: boolean;
     message: string;
+    lateFee?: number; // Optional late fee if return is past expected date
+    refundAmount?: number; // Optional refund if return is before expected date
 };
 
 export type GetActiveOrderResponse = Order | null;
