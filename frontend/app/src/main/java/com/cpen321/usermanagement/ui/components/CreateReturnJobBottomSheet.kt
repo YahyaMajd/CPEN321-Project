@@ -57,12 +57,10 @@ fun CreateReturnJobBottomSheet(
     
     // Address state
     var useCustomAddress by remember { mutableStateOf(false) }
-    var streetAddress by remember { mutableStateOf("") }
-    var city by remember { mutableStateOf("") }
-    var province by remember { mutableStateOf("") }
-    var postalCode by remember { mutableStateOf("") }
+    var addressInput by remember { mutableStateOf("") }
+    var selectedAddress by remember { mutableStateOf<SelectedAddress?>(null) }
     var customAddress by remember { mutableStateOf<Address?>(null) }
-    var isGeocoding by remember { mutableStateOf(false) }
+    var isValidating by remember { mutableStateOf(false) }
     
     // Fee calculation
     val expectedReturnDate = remember { 
@@ -145,49 +143,66 @@ fun CreateReturnJobBottomSheet(
                         defaultAddress = activeOrder.returnAddress?.formattedAddress 
                             ?: activeOrder.studentAddress.formattedAddress,
                         useCustomAddress = useCustomAddress,
-                        onUseCustomAddressChange = { useCustomAddress = it },
-                        streetAddress = streetAddress,
-                        onStreetAddressChange = { streetAddress = it },
-                        city = city,
-                        onCityChange = { city = it },
-                        province = province,
-                        onProvinceChange = { province = it },
-                        postalCode = postalCode,
-                        onPostalCodeChange = { postalCode = it },
-                        isGeocoding = isGeocoding,
+                        onUseCustomAddressChange = { 
+                            useCustomAddress = it
+                            // Reset when switching
+                            if (it) {
+                                addressInput = ""
+                                selectedAddress = null
+                            }
+                        },
+                        streetAddress = addressInput,
+                        onStreetAddressChange = { 
+                            addressInput = it
+                            // Clear selected address when user starts typing again
+                            if (selectedAddress != null && it != selectedAddress?.formattedAddress) {
+                                selectedAddress = null
+                            }
+                        },
+                        selectedAddress = selectedAddress,
+                        onAddressSelected = { address ->
+                            selectedAddress = address
+                            addressInput = address.formattedAddress
+                        },
+                        isValidating = isValidating,
                         onConfirm = {
                             if (useCustomAddress) {
-                                val fullAddress = "$streetAddress, $city, $province $postalCode"
-                                if (streetAddress.isBlank() || city.isBlank()) {
+                                if (selectedAddress == null) {
                                     return@AddressSelectionStep
                                 }
                                 
-                                isGeocoding = true
+                                isValidating = true
                                 coroutineScope.launch {
                                     try {
-                                        val coordinates = LocationUtils.geocodeAddress(context, fullAddress)
-                                            ?: LocationUtils.getFallbackCoordinates(fullAddress)
+                                        // Validate that the selected address is within Vancouver area
+                                        val validationResult = LocationUtils.validateAndGeocodeAddress(
+                                            context, 
+                                            selectedAddress!!.formattedAddress
+                                        )
 
-                                        customAddress = Address(
-                                            lat = coordinates.latitude,
-                                            lon = coordinates.longitude,
-                                            formattedAddress = fullAddress
-                                        )
-                                        
-                                        // Submit the return job
-                                        submitReturnJob(
-                                            selectedDateMillis = selectedDateMillis,
-                                            returnHour = returnHour,
-                                            returnMinute = returnMinute,
-                                            customAddress = customAddress,
-                                            isEarlyReturn = isEarlyReturn,
-                                            paymentIntentId = null,
-                                            onSubmit = onSubmit
-                                        )
+                                        if (validationResult.isValid && validationResult.coordinates != null) {
+                                            customAddress = Address(
+                                                lat = selectedAddress!!.latitude,
+                                                lon = selectedAddress!!.longitude,
+                                                formattedAddress = selectedAddress!!.formattedAddress
+                                            )
+                                            
+                                            // Submit the return job
+                                            submitReturnJob(
+                                                selectedDateMillis = selectedDateMillis,
+                                                returnHour = returnHour,
+                                                returnMinute = returnMinute,
+                                                customAddress = customAddress,
+                                                isEarlyReturn = isEarlyReturn,
+                                                paymentIntentId = paymentIntentId,
+                                                onSubmit = onSubmit
+                                            )
+                                        } else {
+                                            // Address is invalid or outside service area
+                                            isValidating = false
+                                        }
                                     } catch (e: Exception) {
-                                        // Handle error
-                                    } finally {
-                                        isGeocoding = false
+                                        isValidating = false
                                     }
                                 }
                             } else {
@@ -198,7 +213,7 @@ fun CreateReturnJobBottomSheet(
                                     returnMinute = returnMinute,
                                     customAddress = null,
                                     isEarlyReturn = isEarlyReturn,
-                                    paymentIntentId = null,
+                                    paymentIntentId = paymentIntentId,
                                     onSubmit = onSubmit
                                 )
                             }
@@ -487,13 +502,9 @@ private fun AddressSelectionStep(
     onUseCustomAddressChange: (Boolean) -> Unit,
     streetAddress: String,
     onStreetAddressChange: (String) -> Unit,
-    city: String,
-    onCityChange: (String) -> Unit,
-    province: String,
-    onProvinceChange: (String) -> Unit,
-    postalCode: String,
-    onPostalCodeChange: (String) -> Unit,
-    isGeocoding: Boolean,
+    selectedAddress: SelectedAddress?,
+    onAddressSelected: (SelectedAddress) -> Unit,
+    isValidating: Boolean,
     onConfirm: () -> Unit
 ) {
     Column {
@@ -549,46 +560,22 @@ private fun AddressSelectionStep(
         if (useCustomAddress) {
             Spacer(modifier = Modifier.height(16.dp))
             
-            OutlinedTextField(
-                value = streetAddress,
-                onValueChange = onStreetAddressChange,
-                label = { Text("Street Address") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+            Text(
+                text = "Currently serving Greater Vancouver, BC only",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
             
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = city,
-                    onValueChange = onCityChange,
-                    label = { Text("City") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true
-                )
-                
-                OutlinedTextField(
-                    value = province,
-                    onValueChange = onProvinceChange,
-                    label = { Text("Province") },
-                    modifier = Modifier.weight(0.5f),
-                    singleLine = true
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            OutlinedTextField(
-                value = postalCode,
-                onValueChange = onPostalCodeChange,
-                label = { Text("Postal Code") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+            AddressAutocompleteField(
+                value = streetAddress,
+                onValueChange = onStreetAddressChange,
+                onAddressSelected = onAddressSelected,
+                label = "Enter Address",
+                placeholder = "e.g. 123 Main St, Vancouver, BC",
+                enabled = !isValidating,
+                modifier = Modifier.fillMaxWidth()
             )
         }
         
@@ -596,17 +583,18 @@ private fun AddressSelectionStep(
         
         Button(
             onClick = onConfirm,
-            enabled = !isGeocoding && (!useCustomAddress || (streetAddress.isNotBlank() && city.isNotBlank())),
+            enabled = !isValidating && (!useCustomAddress || selectedAddress != null),
             modifier = Modifier.fillMaxWidth()
         ) {
-            if (isGeocoding) {
+            if (isValidating) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Processing...")
+                    Text("Validating Address...")
                 }
             } else {
                 Text("Create Return Job")
