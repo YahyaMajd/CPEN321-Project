@@ -103,7 +103,7 @@ fun CreateReturnJobBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Create Return Job",
+                    text = "Confirm Order Return",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -597,7 +597,7 @@ private fun AddressSelectionStep(
                     Text("Validating Address...")
                 }
             } else {
-                Text("Create Return Job")
+                Text("Confirm Return Details")
             }
         }
     }

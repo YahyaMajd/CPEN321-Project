@@ -272,7 +272,7 @@ fun JobDetailsSheet(
                 // Job details
                 DetailRow(label = "Job Type", value = job.jobType.value)
                 DetailRow(label = "Volume", value = "${job.volume} m³")
-                DetailRow(label = "Price", value = "$${String.format("%.2f", job.price)}")
+                DetailRow(label = "Earnings", value = "$${String.format("%.2f", job.price)}")
 
                 HorizontalDivider()
 

@@ -172,7 +172,7 @@ private fun ActiveOrderStatusContent(
                 job.status != JobStatus.COMPLETED
             }
             
-            // Show "Create Return Job" button only if:
+            // Show button only if:
             // 1. Order is in storage
             // 2. No active return job exists (completed return jobs don't count)
             if (order.status == OrderStatus.IN_STORAGE && !hasActiveReturnJob) {
@@ -181,7 +181,8 @@ private fun ActiveOrderStatusContent(
                     horizontalArrangement = Arrangement.End
                 ) {
                     Button(onClick = onCreateReturnJob) {
-                        Text("Create Return Job")
+                        //this is technically creating a create return job, but makes more sense to the user to see it as Confirm Return
+                        Text("Confirm Order Return")
                     }
                 }
             }

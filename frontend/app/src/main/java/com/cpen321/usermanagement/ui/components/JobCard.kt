@@ -52,7 +52,7 @@ fun CurrentJobCard(
                 horizontalArrangement = Arrangement.End
             ) {
                 Button(onClick = onDetailsClick) {
-                    Text("Manage Job")
+                    Text("View and Manage Job Details")
                 }
             }
         }
