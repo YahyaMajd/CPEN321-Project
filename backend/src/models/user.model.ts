@@ -171,6 +171,20 @@ export class UserModel {
       throw new Error('Failed to find user');
     }
   }
+  
+  // TODO: only students have fcmTokens for now, if stays this way, make this function only work for students
+   async getFcmToken(userId: mongoose.Types.ObjectId): Promise<string | null> {
+    try {
+      const userDoc = await this.user.findById(userId).select('fcmToken');
+      if (!userDoc) {
+        return null;
+      }
+      return userDoc.fcmToken ?? null;
+    } catch (error) {
+      logger.error('Error getting FCM token:', error);
+      throw new Error('Failed to get FCM token');
+    }
+  }
 }
 
 export const userModel = new UserModel();

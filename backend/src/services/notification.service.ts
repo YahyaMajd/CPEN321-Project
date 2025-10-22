@@ -3,7 +3,8 @@ import { NotificationPayload } from '../types/notification.types';
 import logger from "../utils/logger.util";
 import mongoose from 'mongoose';
 import { JobStatus, JobType } from '../types/job.type';
-import { jobModel } from "../models/job.model";``
+import { jobModel } from "../models/job.model";import { userModel } from '../models/user.model';
+``
 
 class NotificationService {
   async sendNotificationToDevice(payload: NotificationPayload) {
@@ -85,6 +86,26 @@ class NotificationService {
     } catch (error: any) {
       logger.error("Failed to send job status notification:", error);
     }
+  }
+
+  // debug notification function to test FCM, call it from controllers or services
+  async sendDebugNotification(studentId: mongoose.Types.ObjectId) {
+    const token = await userModel.getFcmToken(studentId);
+    if (!token) {
+      console.log(`No FCM token found for student ${studentId}`);
+      return;
+    }else {
+      console.log(`FCM token for student: ${token}`);
+    }
+    const notification: NotificationPayload = {
+      fcmToken: token,
+      title: "Debug Notification", 
+      body: "This is a test notification from NotificationService.",
+      data: {
+        debug: "true",
+      },
+    };
+    await this.sendNotificationToDevice(notification);
   }
 }
 
