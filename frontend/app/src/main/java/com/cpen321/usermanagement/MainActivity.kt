@@ -47,17 +47,19 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        Log.d("MyFCM", "Android SDK: ${Build.VERSION.SDK_INT}")
+        // FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+        //     if (!task.isSuccessful) {
+        //         Log.w("MyFCM", "Fetching FCM token failed", task.exception)
+        //         return@addOnCompleteListener
+        //     }
+        //     else {
+        //         val token = task.result
+        //         Log.d("ManualFCM", "Manual token: $token")
+        //         MyFirebaseMessagingService().sendTokenToBackend(token)
+        //     }
+        // }
 
-        // Fetch FCM token
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (!task.isSuccessful) {
-                Log.w("MyFCM", "Fetching FCM token failed", task.exception)
-                return@addOnCompleteListener
-            }
-            val token = task.result
-            Log.d("MyFCM", "Current FCM token: $token")
-        }
+        Log.d("MyFCM", "Android SDK: ${Build.VERSION.SDK_INT}")
 
         // Request notification permission 
        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

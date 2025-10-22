@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.cpen321.usermanagement.MyFirebaseMessagingService
 
 data class AuthUiState(
     // Loading states
@@ -88,6 +89,8 @@ class AuthViewModel @Inject constructor(
                     if (token != null){
                         socketClient.connect("Bearer $token")
                     }
+                    // send FCM token to backend
+                    MyFirebaseMessagingService().fetchAndSendFcmToken("CHECK_AUTH")
                 }
             } catch (e: java.net.SocketTimeoutException) {
                 handleAuthError("Network timeout. Please check your connection.", e)
@@ -181,16 +184,28 @@ class AuthViewModel @Inject constructor(
                 }
         }
     }
-
     fun handleGoogleSignInResult(credential: GoogleIdTokenCredential) {
         handleGoogleAuthResult(credential, isSignUp = false) { idToken ->
-            authRepository.googleSignIn(idToken)
+            val result = authRepository.googleSignIn(idToken)
+
+            result.onSuccess { authData ->
+                // Get the FCM token and send it to backend
+                MyFirebaseMessagingService().fetchAndSendFcmToken("SIGN_IN")
+            }
+
+            result // return the original result to handleGoogleAuthResult
         }
     }
 
     fun handleGoogleSignUpResult(credential: GoogleIdTokenCredential) {
         handleGoogleAuthResult(credential, isSignUp = true) { idToken ->
-            authRepository.googleSignUp(idToken)
+             val result = authRepository.googleSignUp(idToken)
+
+            result.onSuccess { authData ->
+                MyFirebaseMessagingService().fetchAndSendFcmToken("SIGN_UP")
+            }
+
+            result // return the original result to handleGoogleAuthResult
         }
     }
 

@@ -14,6 +14,7 @@ import {
     JobResponse,
     GetMoverJobsResponse
 } from "../types/job.type";
+import { notificationService } from "./notification.service";
 import { Address, OrderStatus } from "../types/order.types";
 import { getIo, emitToRooms } from "../socket";
 import logger from "../utils/logger.util";
@@ -414,6 +415,9 @@ export class JobService {
                     logger.warn('Failed to emit job.updated after accept:', emitErr);
                 }
                 
+                // Send notification to student that their job has been accepted
+                await notificationService.sendJobStatusNotification(new mongoose.Types.ObjectId(jobId), JobStatus.ACCEPTED);
+                
             } else {
                 // For non-ACCEPTED statuses, perform a simple update
                 updatedJob = await jobModel.update(
@@ -445,6 +449,8 @@ export class JobService {
                 try {
                     if (job.jobType === JobType.STORAGE) {
                         const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.IN_STORAGE });
+                        // notfication should not depend on socket emission success so its called after db update
+                        await notificationService.sendJobStatusNotification(new mongoose.Types.ObjectId(jobId), JobStatus.COMPLETED);
                         logger.info(`Order ${rawOrderId} update result (IN_STORAGE): ${JSON.stringify(orderUpdateResult)}`);
                         try {
                             const meta = { by: updatedJob.moverId?.toString() ?? null, ts: new Date().toISOString() };
@@ -475,6 +481,7 @@ export class JobService {
                         // For RETURN jobs, mark order as RETURNED (not COMPLETED yet)
                         // Student will need to confirm delivery before order is COMPLETED
                         const orderUpdateResult = await orderModel.update(new mongoose.Types.ObjectId(rawOrderId), { status: OrderStatus.RETURNED });
+                        await notificationService.sendJobStatusNotification(new mongoose.Types.ObjectId(jobId), JobStatus.COMPLETED);
                         logger.info(`Order ${rawOrderId} update result (RETURNED): ${JSON.stringify(orderUpdateResult)}`);
                         try {
                             const meta = { by: updatedJob.moverId?.toString() ?? null, ts: new Date().toISOString() };
@@ -540,6 +547,8 @@ export class JobService {
             if (job.status !== JobStatus.ACCEPTED) throw new Error('Job must be ACCEPTED to request confirmation');
 
             const updatedJob = await jobModel.update(job._id, { status: JobStatus.AWAITING_STUDENT_CONFIRMATION, verificationRequestedAt: new Date(), updatedAt: new Date() });
+
+            await notificationService.sendJobStatusNotification(new mongoose.Types.ObjectId(jobId), JobStatus.AWAITING_STUDENT_CONFIRMATION);
 
             // Emit job.updated targeted to student and order room
             try {

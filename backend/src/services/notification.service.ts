@@ -2,7 +2,7 @@ import admin from '../config/firebase';
 import { NotificationPayload } from '../types/notification.types';
 import logger from "../utils/logger.util";
 import mongoose from 'mongoose';
-import { JobStatus } from '../types/job.type';
+import { JobStatus, JobType } from '../types/job.type';
 import { jobModel } from "../models/job.model";``
 
 class NotificationService {
@@ -33,7 +33,7 @@ class NotificationService {
   // TODO: figure out where to call this function
   // sends job status update notifications to student
   async sendJobStatusNotification(jobId: mongoose.Types.ObjectId, status: JobStatus.ACCEPTED 
-        | JobStatus.PICKED_UP 
+        | JobStatus.AWAITING_STUDENT_CONFIRMATION 
         | JobStatus.COMPLETED) {
     try {
       const job = await jobModel.findById(jobId);
@@ -56,13 +56,17 @@ class NotificationService {
           title = "Job Accepted";
           body = "A mover has accepted your job!";
           break;
-        case JobStatus.PICKED_UP:
-          title = "Job Picked Up";
-          body = "Your items have been picked up and are on the way to our warehouse!";
+        case JobStatus.AWAITING_STUDENT_CONFIRMATION:
+          title = "Your mover is here!";
+          body = "Please meet your mover to begin the pickup.";
           break;
         case JobStatus.COMPLETED:
-          title = "Job Completed";
-          body = "Your job has been successfully completed!";
+          title = "Delivery Update";
+          if (job.jobType == JobType.STORAGE) {
+            body = "Your items have been moved to storage!";
+          } else {
+            body = "Your items have been returned to your address.";
+          }
           break;
       }
 

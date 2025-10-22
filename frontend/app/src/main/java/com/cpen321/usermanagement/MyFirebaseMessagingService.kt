@@ -18,14 +18,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.cpen321.usermanagement.data.remote.dto.UpdateProfileRequest
+import com.cpen321.usermanagement.data.remote.api.RetrofitClient
+import com.google.firebase.messaging.FirebaseMessaging
+
 
 @AndroidEntryPoint
 class MyFirebaseMessagingService : FirebaseMessagingService() {
-
-    @Inject
-    lateinit var userInterface: UserInterface 
     private val CHANNEL_ID = "default_channel"
     private val TAG = "MyFCM"
+    private val userInterface: UserInterface = RetrofitClient.userInterface
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
@@ -33,21 +34,35 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         sendTokenToBackend(token)
     }
 
-    private fun sendTokenToBackend(token: String) {
-        Log.d(TAG, "Sending token to backend: $token")
+    public fun fetchAndSendFcmToken(place: String) {
+        Log.d("place", "fetchAndSendFcmToken called from: $place")
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w("MyFCM", "Fetching FCM token failed", task.exception)
+                return@addOnCompleteListener
+            } else {
+                val token = task.result
+                Log.d("ManualFCM", "Manual token: $token")
+                sendTokenToBackend(token)
+            }
+        }
+    }
 
+    private fun sendTokenToBackend(token: String) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val updateRequest = UpdateProfileRequest(fcmToken = token)
+                Log.d(TAG, "Sending token to backend: $token")
+                val updateRequest = UpdateProfileRequest(name = "anon", fcmToken = token)
+                Log.d(TAG, "req body: $updateRequest")
                 val response = userInterface.updateProfile(updateRequest)
 
                 if (response.isSuccessful) {
                     Log.d(TAG, "FCM token updated successfully on backend.")
                 } else {
-                    Log.e(TAG, "Failed to update FCM token on backend: ${response.errorBody()?.string()}")
+                    Log.e(TAG, "Failed to update FCM token: ${response.errorBody()?.string()}")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating FCM token on backend", e)
+                Log.e(TAG, "Error updating FCM token", e)
             }
         }
     }
