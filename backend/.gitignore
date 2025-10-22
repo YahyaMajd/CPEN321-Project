@@ -8,6 +8,7 @@ build/
 
 # Environment variables
 .env
+serviceAccountKey.json
 
 # Logs
 logs

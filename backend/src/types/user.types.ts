@@ -17,6 +17,7 @@ export interface IUser extends Document {
   userRole?: UserRole;  // Optional - set after signup
   googleId: string;
   email: string;
+  fcmToken?: string;
   name: string;
   profilePicture?: string;
   bio?: string;
@@ -60,6 +61,7 @@ export const createUserSchema = z.object({
 export const updateProfileSchema = z.object({
   name: z.string().min(1).optional(),
   bio: z.string().max(500).optional(),
+  fcmToken: z.string().optional(),  
   profilePicture: z.string().min(1).optional(),
   userRole: z.enum(['STUDENT', 'MOVER']).optional(),
   // Mover-specific fields

@@ -4,6 +4,7 @@ import { GetProfileResponse, UpdateProfileRequest } from '../types/user.types';
 import logger from '../utils/logger.util';
 import { MediaService } from '../services/media.service';
 import { userModel } from '../models/user.model';
+import { Console } from 'console';
 
 export class UserController {
   getProfile(req: Request, res: Response<GetProfileResponse>) {
@@ -14,7 +15,8 @@ export class UserController {
       data: { user },
     });
   }
-
+  // TODO: logic should be in service layer, for now I update the fcm token through this to avoid potential risk but 
+  // eventually fcm should have its own endpoint and controller
   async updateProfile(
     req: Request<unknown, unknown, UpdateProfileRequest>,
     res: Response<GetProfileResponse>,
@@ -22,6 +24,9 @@ export class UserController {
   ) {
     try {
       const user = req.user!;
+
+      // TODO: remove this
+      console.log("debug-fcmToken:", user);
 
       const updatedUser = await userModel.update(user._id, req.body);
 

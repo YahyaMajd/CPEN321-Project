@@ -1,5 +1,4 @@
 import mongoose, { ObjectId, Schema } from "mongoose";
-import { z } from "zod";
 
 import { ACTIVE_ORDER_STATUSES, createOrderSchema, Order, OrderStatus } from "../types/order.types";
 import logger from "../utils/logger.util";

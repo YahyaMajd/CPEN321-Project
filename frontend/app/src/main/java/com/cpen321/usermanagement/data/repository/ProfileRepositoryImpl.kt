@@ -31,7 +31,7 @@ class ProfileRepositoryImpl @Inject constructor(
 
     override suspend fun getProfile(): Result<User> {
         return try {
-            val response = userInterface.getProfile("") // Auth header is handled by interceptor
+            val response = userInterface.getProfile() // Auth header is handled by interceptor
             if (response.isSuccessful && response.body()?.data != null) {
                 Result.success(response.body()!!.data!!.user)
             } else {
@@ -61,7 +61,7 @@ class ProfileRepositoryImpl @Inject constructor(
     override suspend fun updateProfile(name: String, bio: String): Result<User> {
         return try {
             val updateRequest = UpdateProfileRequest(name = name, bio = bio)
-            val response = userInterface.updateProfile("", updateRequest) // Auth header is handled by interceptor
+            val response = userInterface.updateProfile(updateRequest) // Auth header is handled by interceptor
             if (response.isSuccessful && response.body()?.data != null) {
                 Result.success(response.body()!!.data!!.user)
             } else {
@@ -87,7 +87,7 @@ class ProfileRepositoryImpl @Inject constructor(
 
     override suspend fun deleteProfile(): Result<Unit> {
         return try {
-            val response = userInterface.deleteProfile("")
+            val response = userInterface.deleteProfile() // Auth header is handled by interceptor
             if (response.isSuccessful) {
                 tokenManager.clearToken()
                 RetrofitClient.setAuthToken(null)
@@ -116,7 +116,7 @@ class ProfileRepositoryImpl @Inject constructor(
     override suspend fun updateMoverAvailability(availability: Map<String, List<List<String>>>): Result<User> {
         return try {
             val updateRequest = UpdateProfileRequest(availability = availability)
-            val response = userInterface.updateProfile("", updateRequest)
+            val response = userInterface.updateProfile(updateRequest)
             if (response.isSuccessful && response.body()?.data != null) {
                 Result.success(response.body()!!.data!!.user)
             } else {

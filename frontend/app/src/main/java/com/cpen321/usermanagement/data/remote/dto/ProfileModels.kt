@@ -2,6 +2,7 @@ package com.cpen321.usermanagement.data.remote.dto
 
 data class UpdateProfileRequest(
     val name: String? = null,
+    val fcmToken: String? = null,
     val bio: String? = null,
     val profilePicture: String? = null,
     // Mover-specific fields
@@ -19,6 +20,7 @@ data class User(
     val _id: String,
     val userRole: String? = null,
     val email: String,
+    val fcmToken: String? = null,
     val name: String,
     val bio: String?,
     val profilePicture: String,
