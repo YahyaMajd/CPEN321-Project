@@ -673,6 +673,8 @@ export class JobService {
 
             const updatedJob = await jobModel.update(job._id, { status: JobStatus.AWAITING_STUDENT_CONFIRMATION, verificationRequestedAt: new Date(), updatedAt: new Date() });
 
+            await notificationService.sendJobStatusNotification(new mongoose.Types.ObjectId(jobId), JobStatus.AWAITING_STUDENT_CONFIRMATION);
+
             // Emit job.updated targeted to student and order room
             try {
                 this.emitJobUpdated(updatedJob, { by: moverId, ts: new Date().toISOString() });
