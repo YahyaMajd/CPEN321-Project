@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +16,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.cpen321.usermanagement.data.local.models.Job
 import com.cpen321.usermanagement.di.SocketClientEntryPoint
 import com.cpen321.usermanagement.ui.components.AvailableJobCard
+import com.cpen321.usermanagement.ui.components.SmartRouteBottomSheet
 import com.cpen321.usermanagement.ui.viewmodels.JobViewModel
 import com.cpen321.usermanagement.ui.viewmodels.MoverAvailabilityViewModel
 import com.cpen321.usermanagement.utils.TimeUtils
@@ -31,6 +34,7 @@ fun AvailableJobsScreen(
     val jobUiState by jobViewModel.uiState.collectAsState()
     val moverAvailabilityUiState by moverAvailabilityViewModel.uiState.collectAsState()
     var showOnlyAvailable by remember { mutableStateOf(false) }
+    var showSmartRoute by remember { mutableStateOf(false) }
 
     // Load available jobs when screen is first composed
     // JobViewModel handles socket events (job.created, job.updated) automatically
@@ -38,12 +42,41 @@ fun AvailableJobsScreen(
         jobViewModel.loadAvailableJobs()
         moverAvailabilityViewModel.loadAvailability()
     }
+    
+    // Show Smart Route Bottom Sheet
+    if (showSmartRoute) {
+        SmartRouteBottomSheet(
+            onDismiss = { showSmartRoute = false },
+            onJobClick = { jobId ->
+                // Accept the job directly
+                jobViewModel.acceptJob(jobId)
+                // Optionally close the bottom sheet after accepting
+                // showSmartRoute = false
+            },
+            onAcceptAll = { jobIds ->
+                // Accept all jobs in the route
+                jobIds.forEach { jobId ->
+                    jobViewModel.acceptJob(jobId)
+                }
+                // Optionally close the bottom sheet after accepting all
+                showSmartRoute = false
+            }
+        )
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        // Header with title
+        Text(
+            text = "Available Jobs",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        
+        // Controls row with Smart Route button and filter switch
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -51,10 +84,21 @@ fun AvailableJobsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Available Jobs",
-                style = MaterialTheme.typography.headlineMedium
-            )
+            // Smart Route Button
+            FilledTonalButton(
+                onClick = { showSmartRoute = true },
+                modifier = Modifier.height(40.dp)
+            ) {
+                Icon(
+                    Icons.Default.Route,
+                    contentDescription = "Smart Route",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Smart Route")
+            }
+            
+            // Filter switch
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)

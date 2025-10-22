@@ -265,7 +265,7 @@ private fun JobDetailsContent(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.secondary
+                        tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {

@@ -6,6 +6,7 @@ import com.cpen321.usermanagement.data.remote.api.JobApiService
 import com.cpen321.usermanagement.data.remote.api.OrderInterface
 import com.cpen321.usermanagement.data.remote.api.PaymentInterface
 import com.cpen321.usermanagement.data.remote.api.RetrofitClient
+import com.cpen321.usermanagement.data.remote.api.RouteApiService
 import com.cpen321.usermanagement.data.remote.api.UserInterface
 import dagger.Module
 import dagger.Provides
@@ -53,5 +54,11 @@ object NetworkModule {
     @Singleton
     fun providePaymentService(): PaymentInterface {
         return RetrofitClient.paymentInterface
+    }
+
+    @Provides
+    @Singleton
+    fun provideRouteService(): RouteApiService {
+        return RetrofitClient.routeApiService
     }
 }

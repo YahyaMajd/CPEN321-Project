@@ -305,7 +305,7 @@ private fun AddressCaptureStep(
 
     Column {
         Text(
-            text = "We need your pickup address to calculate pricing",
+            text = "We need your pickup address to find the nearest warehouse",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp)
@@ -392,7 +392,7 @@ private fun AddressCaptureStep(
                     Text("Validating Address...")
                 }
             } else {
-                Text("Get Pricing")
+                Text("Get Base Delivery Charge")
             }
         }
     }
