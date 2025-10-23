@@ -710,11 +710,8 @@ private fun fetchCurrentLocationAndRoute(
     viewModel: SmartRouteViewModel,
     maxDuration: Int? = null
 ) {
-    // For testing: Always use Vancouver downtown since test jobs are in Vancouver
-    // In production, you would use actual GPS location
-    viewModel.fetchSmartRoute(49.2827, -123.1207, maxDuration)
     
-    /* Production code with actual GPS:
+    /* Production code with actual GPS:*/
     val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
     
@@ -731,7 +728,7 @@ private fun fetchCurrentLocationAndRoute(
         // Fallback to Vancouver downtown
         viewModel.fetchSmartRoute(49.2827, -123.1207, maxDuration)
     }
-    */
+    
 }
 
 private fun formatDateTime(isoString: String): String {
