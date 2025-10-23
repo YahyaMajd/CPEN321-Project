@@ -93,7 +93,7 @@ export class JobController {
     }
 
     // Mover indicates arrival and requests student confirmation
-    async arrived(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    async send_arrival_confirmation(req: Request<{ id: string }>, res: Response, next: NextFunction) {
         try {
             if (!req.user || !req.user._id) throw new Error('User not authenticated');
             const moverId = req.user._id.toString();

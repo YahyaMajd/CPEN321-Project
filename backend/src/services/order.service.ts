@@ -1,10 +1,9 @@
-import mongoose, { mongo, ObjectId } from "mongoose";
+import mongoose, { ObjectId } from "mongoose";
 import { orderModel } from "../models/order.model";
 import { jobModel } from "../models/job.model";
 import {WAREHOUSES} from "../constants/warehouses"
 import { CreateOrderRequest, QuoteRequest, GetQuoteResponse, CancelOrderResponse, CreateOrderResponse, CreateReturnJobResponse, CreateReturnJobRequest, Order, OrderStatus, GetAllOrdersResponse, ACTIVE_ORDER_STATUSES } from "../types/order.types";
 import logger from "../utils/logger.util";
-import { emitToRooms } from "../socket";
 import { jobService } from "./job.service";
 import { paymentService } from "./payment.service";
 import { JobType, CreateJobRequest, JobStatus } from "../types/job.type";

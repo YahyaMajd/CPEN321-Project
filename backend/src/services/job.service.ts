@@ -10,23 +10,18 @@ import {
     GetAllJobsResponse,
     GetJobResponse,
     UpdateJobStatusRequest,
-    JobListItem,
     JobResponse,
     GetMoverJobsResponse
 } from "../types/job.type";
 import { notificationService } from "./notification.service";
 import { Address, OrderStatus } from "../types/order.types";
-import { getIo, emitToRooms } from "../socket";
 import logger from "../utils/logger.util";
 import { EventEmitter } from "../utils/eventEmitter.util";
 import { JobMapper } from "../mappers/job.mapper";
 import { PRICING } from "../config/pricing.config";
 import { extractObjectId, extractObjectIdString } from "../utils/mongoose.util";
 import { 
-    JobNotFoundError, 
-    InvalidJobStatusError, 
-    UnauthorizedError,
-    JobAlreadyAcceptedError,
+    JobNotFoundError,
     InternalServerError
 } from "../utils/errors.util";
 
@@ -44,8 +39,13 @@ export class JobService {
         }
 
         try {
-            // Extract moverId - handle both populated document and ObjectId
-            const moverObjectId = (job.moverId as any)?._id ?? job.moverId;
+            // Extract moverId using utility
+            const moverObjectId = extractObjectId(job.moverId);
+            if (!moverObjectId) {
+                logger.warn('Invalid moverId, skipping credits');
+                return;
+            }
+            
             const mover = await userModel.findById(moverObjectId);
             
             if (mover && mover.userRole === 'MOVER') {
@@ -64,7 +64,14 @@ export class JobService {
 
     // Cancel (mark as CANCELLED) all jobs for a given orderId that are not already terminal
     async cancelJobsForOrder(orderId: string, actorId?: string) {
+        // Input validation
+        if (!orderId) {
+            logger.error('cancelJobsForOrder: Missing orderId');
+            throw new Error('orderId is required');
+        }
+        
         try {
+            logger.info(`cancelJobsForOrder: orderId=${orderId}, actorId=${actorId || 'system'}`);
             const foundJobs: any[] = await jobModel.findByOrderId(new mongoose.Types.ObjectId(orderId));
             const toCancel = foundJobs.filter(j => j.status !== JobStatus.COMPLETED && j.status !== JobStatus.CANCELLED);
 
@@ -89,6 +96,22 @@ export class JobService {
         }
     }
     async createJob(reqData: CreateJobRequest): Promise<CreateJobResponse> {
+        // Input validation
+        if (!reqData.orderId || !reqData.studentId) {
+            logger.error('createJob: Missing required IDs', { orderId: reqData.orderId, studentId: reqData.studentId });
+            throw new Error('orderId and studentId are required');
+        }
+        
+        if (!reqData.volume || reqData.volume <= 0) {
+            logger.error('createJob: Invalid volume', { volume: reqData.volume });
+            throw new Error('volume must be greater than 0');
+        }
+        
+        if (!reqData.price || reqData.price <= 0) {
+            logger.error('createJob: Invalid price', { price: reqData.price });
+            throw new Error('price must be greater than 0');
+        }
+        
         try {
             const newJob: Job = {
                 orderId: new mongoose.Types.ObjectId(reqData.orderId),
@@ -242,8 +265,19 @@ export class JobService {
     }
 
     async updateJobStatus(jobId: string, updateData: UpdateJobStatusRequest): Promise<JobResponse> {
+        // Input validation
+        if (!jobId) {
+            logger.error('updateJobStatus: Missing jobId');
+            throw new Error('jobId is required');
+        }
+        
+        if (!updateData.status) {
+            logger.error('updateJobStatus: Missing status', { jobId });
+            throw new Error('status is required');
+        }
+        
         try {
-            logger.info(`updateJobStatus service called for jobId=${jobId} updateData=${JSON.stringify(updateData)}`);
+            logger.info(`updateJobStatus: jobId=${jobId}, status=${updateData.status}, moverId=${updateData.moverId || 'none'}`);
             const updateFields: Partial<Job> = {
                 status: updateData.status,
                 updatedAt: new Date(),
@@ -267,15 +301,20 @@ export class JobService {
 
                 logger.info(`Job ${jobId} atomically accepted by mover=${updateData.moverId}`);
 
-                // job.orderId may be populated (document) or just an ObjectId
-                const rawOrderId: any = (updatedJob as any).orderId?._id ?? (updatedJob as any).orderId;
-                logger.info(`Attempting to update linked order status to ACCEPTED for orderId=${rawOrderId}`);
+                // Extract orderId using utility
+                const orderObjectId = extractObjectId(updatedJob.orderId);
+                if (!orderObjectId) {
+                    logger.error(`Invalid orderId in job ${jobId}`);
+                    throw new Error("Invalid orderId in job");
+                }
+                
+                logger.info(`Attempting to update linked order status to ACCEPTED for orderId=${orderObjectId}`);
                 try {
                     // Use orderService instead of direct orderModel access
-                    await this.orderService.updateOrderStatus(rawOrderId, OrderStatus.ACCEPTED, updateData.moverId ?? undefined);
-                    logger.info(`Order ${rawOrderId} updated to ACCEPTED via OrderService`);
+                    await this.orderService.updateOrderStatus(orderObjectId, OrderStatus.ACCEPTED, updateData.moverId ?? undefined);
+                    logger.info(`Order ${orderObjectId} updated to ACCEPTED via OrderService`);
                 } catch (err) {
-                    logger.error(`Failed to update order status to ACCEPTED for orderId=${rawOrderId}:`, err);
+                    logger.error(`Failed to update order status to ACCEPTED for orderId=${orderObjectId}:`, err);
                     throw err;
                 }
                 // Emit job.updated for the accepted job
@@ -313,28 +352,39 @@ export class JobService {
             // If job is completed, update order status
             if (updateData.status === JobStatus.COMPLETED) {
                 const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
+                if (!job) {
+                    throw new JobNotFoundError(jobId);
+                }
+                
                 logger.debug(`Found job for COMPLETED flow: ${JSON.stringify(job)}`);
-                const rawOrderId: any = (job as any).orderId?._id ?? (job as any).orderId;
-                logger.info(`Attempting to update linked order status after job completion for orderId=${rawOrderId}`);
+                
+                // Extract orderId using utility
+                const orderObjectId = extractObjectId(job.orderId);
+                if (!orderObjectId) {
+                    logger.error(`Invalid orderId in job ${jobId}`);
+                    throw new Error("Invalid orderId in job");
+                }
+                
+                logger.info(`Attempting to update linked order status after job completion for orderId=${orderObjectId}`);
                 
                 // Add credits to mover when job is completed
                 await this.addCreditsToMover(updatedJob);
                 
                 try {
                     if (job.jobType === JobType.STORAGE) {
-                        await this.orderService.updateOrderStatus(rawOrderId, OrderStatus.IN_STORAGE, updatedJob.moverId?.toString());
+                        await this.orderService.updateOrderStatus(orderObjectId, OrderStatus.IN_STORAGE, extractObjectIdString(updatedJob.moverId));
                         // notfication should not depend on socket emission success so its called after db update
                         await notificationService.sendJobStatusNotification(new mongoose.Types.ObjectId(jobId), JobStatus.COMPLETED);
-                        logger.info(`Order ${rawOrderId} updated to IN_STORAGE via OrderService`);
+                        logger.info(`Order ${orderObjectId} updated to IN_STORAGE via OrderService`);
                     } else if (job.jobType === JobType.RETURN) {
                         // For RETURN jobs, mark order as RETURNED (not COMPLETED yet)
                         // Student will need to confirm delivery before order is COMPLETED
-                        await this.orderService.updateOrderStatus(rawOrderId, OrderStatus.RETURNED, updatedJob.moverId?.toString());
+                        await this.orderService.updateOrderStatus(orderObjectId, OrderStatus.RETURNED, extractObjectIdString(updatedJob.moverId));
                         await notificationService.sendJobStatusNotification(new mongoose.Types.ObjectId(jobId), JobStatus.COMPLETED);
-                        logger.info(`Order ${rawOrderId} updated to RETURNED via OrderService`);
+                        logger.info(`Order ${orderObjectId} updated to RETURNED via OrderService`);
                     }
                 } catch (err) {
-                    logger.error(`Failed to update order status after job completion for orderId=${rawOrderId}:`, err);
+                    logger.error(`Failed to update order status after job completion for orderId=${orderObjectId}:`, err);
                     throw err;
                 }
             }
@@ -362,12 +412,24 @@ export class JobService {
 
     // Mover requests student confirmation when arrived at pickup (storage jobs only)
     async requestPickupConfirmation(jobId: string, moverId: string) {
+        // Input validation
+        if (!jobId || !moverId) {
+            logger.error('requestPickupConfirmation: Missing required parameters', { jobId, moverId });
+            throw new Error('jobId and moverId are required');
+        }
+        
         try {
+            logger.info(`requestPickupConfirmation: jobId=${jobId}, moverId=${moverId}`);
             const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
-            if (!job) throw new Error('Job not found');
+            if (!job) throw new JobNotFoundError(jobId);
             if (job.jobType !== JobType.STORAGE) throw new Error('Arrival confirmation only valid for storage jobs');
-            const jobMoverId = (job.moverId as any)?._id?.toString() ?? job.moverId?.toString();
-            if (!jobMoverId || jobMoverId !== moverId) throw new Error('Only assigned mover can request confirmation');
+            
+            // Extract and validate moverId
+            const jobMoverIdStr = extractObjectIdString(job.moverId);
+            if (!jobMoverIdStr || jobMoverIdStr !== moverId) {
+                throw new Error('Only assigned mover can request confirmation');
+            }
+            
             if (job.status !== JobStatus.ACCEPTED) throw new Error('Job must be ACCEPTED to request confirmation');
 
             const updatedJob = await jobModel.update(job._id, { status: JobStatus.AWAITING_STUDENT_CONFIRMATION, verificationRequestedAt: new Date(), updatedAt: new Date() });
@@ -390,25 +452,39 @@ export class JobService {
 
     // Student confirms the mover has the items (moves to PICKED_UP and updates order)
     async confirmPickup(jobId: string, studentId: string) {
+        // Input validation
+        if (!jobId || !studentId) {
+            logger.error('confirmPickup: Missing required parameters', { jobId, studentId });
+            throw new Error('jobId and studentId are required');
+        }
+        
         try {
+            logger.info(`confirmPickup: jobId=${jobId}, studentId=${studentId}`);
             const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
-            if (!job) throw new Error('Job not found');
+            if (!job) throw new JobNotFoundError(jobId);
             if (job.jobType !== JobType.STORAGE) throw new Error('Confirm pickup only valid for storage jobs');
             
-            // Extract studentId - handle both populated document and ObjectId
-            const jobStudentId = (job.studentId as any)?._id?.toString() ?? job.studentId?.toString();
-            logger.info(`confirmPickup: jobId=${jobId}, jobStudentId=${jobStudentId}, requestStudentId=${studentId}`);
+            // Extract and validate studentId
+            const jobStudentIdStr = extractObjectIdString(job.studentId);
+            logger.info(`confirmPickup: jobId=${jobId}, jobStudentId=${jobStudentIdStr}, requestStudentId=${studentId}`);
             
-            if (!jobStudentId || jobStudentId !== studentId) throw new Error('Only the student can confirm pickup');
+            if (!jobStudentIdStr || jobStudentIdStr !== studentId) {
+                throw new Error('Only the student can confirm pickup');
+            }
+            
             if (job.status !== JobStatus.AWAITING_STUDENT_CONFIRMATION) throw new Error('Job must be awaiting student confirmation');
 
             const updatedJob = await jobModel.update(job._id, { status: JobStatus.PICKED_UP, updatedAt: new Date() });
 
             // Update order status to PICKED_UP
             try {
-                const rawOrderId: any = (updatedJob as any).orderId?._id ?? (updatedJob as any).orderId;
-                await this.orderService.updateOrderStatus(rawOrderId, OrderStatus.PICKED_UP, studentId);
-                logger.info(`Order ${rawOrderId} updated to PICKED_UP via OrderService`);
+                const orderObjectId = extractObjectId(updatedJob.orderId);
+                if (!orderObjectId) {
+                    throw new Error('Invalid orderId in job');
+                }
+                
+                await this.orderService.updateOrderStatus(orderObjectId, OrderStatus.PICKED_UP, studentId);
+                logger.info(`Order ${orderObjectId} updated to PICKED_UP via OrderService`);
             } catch (err) {
                 logger.error('Failed to update order status during confirmPickup:', err);
                 throw err;
@@ -430,12 +506,24 @@ export class JobService {
 
     // Mover requests student confirmation when delivered items (return jobs only)
     async requestDeliveryConfirmation(jobId: string, moverId: string) {
+        // Input validation
+        if (!jobId || !moverId) {
+            logger.error('requestDeliveryConfirmation: Missing required parameters', { jobId, moverId });
+            throw new Error('jobId and moverId are required');
+        }
+        
         try {
+            logger.info(`requestDeliveryConfirmation: jobId=${jobId}, moverId=${moverId}`);
             const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
-            if (!job) throw new Error('Job not found');
+            if (!job) throw new JobNotFoundError(jobId);
             if (job.jobType !== JobType.RETURN) throw new Error('Delivery confirmation only valid for return jobs');
-            const jobMoverId = (job.moverId as any)?._id?.toString() ?? job.moverId?.toString();
-            if (!jobMoverId || jobMoverId !== moverId) throw new Error('Only assigned mover can request confirmation');
+            
+            // Extract and validate moverId
+            const jobMoverIdStr = extractObjectIdString(job.moverId);
+            if (!jobMoverIdStr || jobMoverIdStr !== moverId) {
+                throw new Error('Only assigned mover can request confirmation');
+            }
+            
             if (job.status !== JobStatus.PICKED_UP) throw new Error('Job must be PICKED_UP (since its a return job) to request confirmation');
 
             const updatedJob = await jobModel.update(job._id, { status: JobStatus.AWAITING_STUDENT_CONFIRMATION, verificationRequestedAt: new Date(), updatedAt: new Date() });
@@ -458,16 +546,26 @@ export class JobService {
 
     // Student confirms the mover delivered the items (moves job to COMPLETED and order to COMPLETED)
     async confirmDelivery(jobId: string, studentId: string) {
+        // Input validation
+        if (!jobId || !studentId) {
+            logger.error('confirmDelivery: Missing required parameters', { jobId, studentId });
+            throw new Error('jobId and studentId are required');
+        }
+        
         try {
+            logger.info(`confirmDelivery: jobId=${jobId}, studentId=${studentId}`);
             const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
-            if (!job) throw new Error('Job not found');
+            if (!job) throw new JobNotFoundError(jobId);
             if (job.jobType !== JobType.RETURN) throw new Error('Confirm delivery only valid for return jobs');
             
-            // Extract studentId - handle both populated document and ObjectId
-            const jobStudentId = (job.studentId as any)?._id?.toString() ?? job.studentId?.toString();
-            logger.info(`confirmDelivery: jobId=${jobId}, jobStudentId=${jobStudentId}, requestStudentId=${studentId}`);
+            // Extract and validate studentId
+            const jobStudentIdStr = extractObjectIdString(job.studentId);
+            logger.info(`confirmDelivery: jobId=${jobId}, jobStudentId=${jobStudentIdStr}, requestStudentId=${studentId}`);
             
-            if (!jobStudentId || jobStudentId !== studentId) throw new Error('Only the student can confirm delivery');
+            if (!jobStudentIdStr || jobStudentIdStr !== studentId) {
+                throw new Error('Only the student can confirm delivery');
+            }
+            
             if (job.status !== JobStatus.AWAITING_STUDENT_CONFIRMATION) throw new Error('Job must be awaiting student confirmation');
 
             const updatedJob = await jobModel.update(job._id, { status: JobStatus.COMPLETED, updatedAt: new Date() });
@@ -477,9 +575,13 @@ export class JobService {
 
             // Update order status to COMPLETED
             try {
-                const rawOrderId: any = (updatedJob as any).orderId?._id ?? (updatedJob as any).orderId;
-                await this.orderService.updateOrderStatus(rawOrderId, OrderStatus.COMPLETED, studentId);
-                logger.info(`Order ${rawOrderId} updated to COMPLETED via OrderService`);
+                const orderObjectId = extractObjectId(updatedJob.orderId);
+                if (!orderObjectId) {
+                    throw new Error('Invalid orderId in job');
+                }
+                
+                await this.orderService.updateOrderStatus(orderObjectId, OrderStatus.COMPLETED, studentId);
+                logger.info(`Order ${orderObjectId} updated to COMPLETED via OrderService`);
             } catch (err) {
                 logger.error('Failed to update order status during confirmDelivery:', err);
                 throw err;

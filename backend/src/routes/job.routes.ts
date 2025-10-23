@@ -28,7 +28,7 @@ router.post('/', jobController.createJob.bind(jobController));
 router.patch('/:id/status', jobController.updateJobStatus.bind(jobController));
 
 // POST /api/jobs/:id/arrived - mover indicates arrival and requests student confirmation
-router.post('/:id/arrived', jobController.arrived.bind(jobController));
+router.post('/:id/arrived', jobController.send_arrival_confirmation.bind(jobController));
 
 // POST /api/jobs/:id/confirm-pickup - student confirms pickup
 router.post('/:id/confirm-pickup', jobController.confirmPickup.bind(jobController));

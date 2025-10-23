@@ -2,6 +2,7 @@ package com.cpen321.usermanagement.ui.components
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -716,15 +717,26 @@ private fun fetchCurrentLocationAndRoute(
         LocationServices.getFusedLocationProviderClient(context)
     
     try {
-        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+        // Request fresh location update instead of using cached location
+        fusedLocationClient.getCurrentLocation(
+            com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+            null
+        ).addOnSuccessListener { location ->
             if (location != null) {
+                Log.d("SmartRoute", "Mover Location (Fresh): ${location.latitude}, ${location.longitude}")
                 viewModel.fetchSmartRoute(location.latitude, location.longitude, maxDuration)
             } else {
                 // Fallback to Vancouver downtown if no location
+                Log.d("SmartRoute", "No location available, using Vancouver fallback")
                 viewModel.fetchSmartRoute(49.2827, -123.1207, maxDuration)
             }
+        }.addOnFailureListener { e ->
+            Log.e("SmartRoute", "Failed to get location: ${e.message}")
+            // Fallback to Vancouver downtown
+            viewModel.fetchSmartRoute(49.2827, -123.1207, maxDuration)
         }
     } catch (e: SecurityException) {
+        Log.e("SmartRoute", "Location permission error: ${e.message}")
         // Fallback to Vancouver downtown
         viewModel.fetchSmartRoute(49.2827, -123.1207, maxDuration)
     }
