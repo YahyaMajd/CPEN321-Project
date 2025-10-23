@@ -5,13 +5,7 @@ import { Job, JobStatus } from "../types/job.type";
 import { DayAvailability, TimeRange } from "../types/user.types";
 import { JobInRoute, RouteMetrics } from "../types/route.types";
 import logger from "../utils/logger.util";
-
-// Algorithm Configuration
-// ------------------------------------------------------------
-const AVERAGE_SPEED_KMH = 40; // Average driving speed in Greater Vancouver
-const JOB_DURATION_PER_M3 = 15; // Base time per cubic meter (minutes)
-const BASE_JOB_TIME = 30; // Minimum job duration (minutes)
-const PROXIMITY_WEIGHT = 0.7; // Weight for distance in scoring (0-1)
+import { ROUTE_CONFIG } from "../config/route.config";
 
 /**
  * RouteService - Provides smart route optimization for movers
@@ -159,7 +153,7 @@ export class RouteService {
    * Estimate job duration based on volume
    */
   private estimateJobDuration(volume: number): number {
-    return BASE_JOB_TIME + volume * JOB_DURATION_PER_M3;
+    return ROUTE_CONFIG.BASE_JOB_TIME + volume * ROUTE_CONFIG.JOB_DURATION_PER_M3;
   }
 
   /**
@@ -312,8 +306,8 @@ export class RouteService {
 
       // Composite score: prioritize value, penalize distance
       const score = 
-        normalizedValue * PROXIMITY_WEIGHT - 
-        normalizedDistance * (1 - PROXIMITY_WEIGHT);
+        normalizedValue * ROUTE_CONFIG.PROXIMITY_WEIGHT - 
+        normalizedDistance * (1 - ROUTE_CONFIG.PROXIMITY_WEIGHT);
 
       return { ...job, compositeScore: score };
     });
@@ -352,7 +346,7 @@ export class RouteService {
    * @returns Travel time in minutes
    */
   private estimateTravelTime(distanceKm: number): number {
-    return (distanceKm / AVERAGE_SPEED_KMH) * 60;
+    return (distanceKm / ROUTE_CONFIG.AVERAGE_SPEED_KMH) * 60;
   }
 
   /**

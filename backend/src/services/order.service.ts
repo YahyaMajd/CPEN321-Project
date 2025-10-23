@@ -7,9 +7,10 @@ import logger from "../utils/logger.util";
 import { emitToRooms } from "../socket";
 import { jobService } from "./job.service";
 import { paymentService } from "./payment.service";
-import { log } from "console";
 import { JobType, CreateJobRequest, JobStatus } from "../types/job.type";
-import ca from "zod/v4/locales/ca.js";
+import { EventEmitter } from "../utils/eventEmitter.util";
+import { OrderMapper } from "../mappers/order.mapper";
+import { PRICING } from "../config/pricing.config";
 
 
 // OrderService Class
@@ -31,9 +32,9 @@ export class OrderService {
             
             let {closestWarehouse, distanceToWarehouse} = this.findClosestWarehouse(studentAddress.lat, studentAddress.lon);
 
-            // $2 per km ?
-            const distancePrice = Number((distanceToWarehouse * 2).toFixed(2));
-            const dailyStorageRate = 5.0; // $5 per day for late returns
+            // Calculate pricing based on distance
+            const distancePrice = Number((distanceToWarehouse * PRICING.PRICE_PER_KM).toFixed(2));
+            const dailyStorageRate = PRICING.DAILY_STORAGE_RATE;
 
             return {
                 distancePrice,
@@ -54,20 +55,7 @@ export class OrderService {
             if (idempotencyKey) {
                 const byKey = await orderModel.findByIdempotencyKey(idempotencyKey);
                 if (byKey) {
-                    return {
-                        _id: (byKey as any)._id.toString(), // Response ID as string
-                        id: (byKey as any)._id.toString(), // Order ID as string
-                        studentId: (byKey as any).studentId.toString(),
-                        moverId: (byKey as any).moverId?.toString(),
-                        status: byKey.status,
-                        volume: byKey.volume,
-                        price: byKey.price,
-                        studentAddress: byKey.studentAddress,
-                        warehouseAddress: byKey.warehouseAddress,
-                        returnAddress: byKey.returnAddress,
-                        pickupTime: byKey.pickupTime,
-                        returnTime: byKey.returnTime,
-                    };
+                    return OrderMapper.toCreateOrderResponse(byKey);
                 }
             }
 
@@ -112,7 +100,7 @@ export class OrderService {
                     studentId: reqData.studentId,
                     jobType: JobType.STORAGE,
                     volume: reqData.volume,
-                    price: reqData.totalPrice * 0.6, // 60% for storage/pickup
+                    price: reqData.totalPrice * PRICING.STORAGE_JOB_SPLIT,
                     pickupAddress: reqData.studentAddress,
                     dropoffAddress: reqData.warehouseAddress,
                     scheduledTime: reqData.pickupTime,
@@ -120,38 +108,10 @@ export class OrderService {
 
                 await jobService.createJob(storageJobRequest);
                 
-                // await jobService.createJobsForOrder(
-                // createdOrder._id.toString(),
-                // reqData.studentId,
-                // reqData.volume,
-                // reqData.totalPrice,
-                // reqData.studentAddress,
-                // reqData.warehouseAddress,
-                // finalReturnAddress,
-                // reqData.pickupTime,
-                // reqData.returnTime
-                // );
                 // Emit order.created to the student and order room (do not block the response)
-                try {
-                    this.emitOrderCreated(createdOrder, { by: reqData.studentId, ts: new Date().toISOString() });
-                } catch (err) {
-                    logger.warn('Failed to emit order.created event:', err);
-                }
+                EventEmitter.emitOrderCreated(createdOrder, { by: reqData.studentId, ts: new Date().toISOString() });
             
-                return {
-                    _id: createdOrder._id,  // Response ID as string
-                    id: createdOrder._id.toString(), // Order ID as string
-                    studentId: createdOrder.studentId.toString(),
-                    moverId: createdOrder.moverId?.toString(),
-                    status: createdOrder.status,
-                    volume: createdOrder.volume,
-                    price: createdOrder.price,
-                    studentAddress: createdOrder.studentAddress,
-                    warehouseAddress: createdOrder.warehouseAddress,
-                    returnAddress: createdOrder.returnAddress,
-                    pickupTime: createdOrder.pickupTime,
-                    returnTime: createdOrder.returnTime,
-                };
+                return OrderMapper.toCreateOrderResponse(createdOrder);
             } catch (err: any) {
                 // If duplicate key error due to race/uniqueness, try to find existing by idempotencyKey or by student+status
                 const isDup = err && err.code === 11000;
@@ -159,20 +119,7 @@ export class OrderService {
                     if (idempotencyKey) {
                         const byKey = await orderModel.findByIdempotencyKey(idempotencyKey);
                         if (byKey) {
-                            return {
-                                id: (byKey as any)._id.toString(),
-                                _id: (byKey as any)._id.toString(),
-                                studentId: (byKey as any).studentId.toString(),
-                                moverId: (byKey as any).moverId?.toString(),
-                                status: byKey.status,
-                                volume: byKey.volume,
-                                price: byKey.price,
-                                studentAddress: byKey.studentAddress,
-                                warehouseAddress: byKey.warehouseAddress,
-                                returnAddress: byKey.returnAddress,
-                                pickupTime: byKey.pickupTime,
-                                returnTime: byKey.returnTime,
-                            };
+                            return OrderMapper.toCreateOrderResponse(byKey);
                         }
                     }
                 }
@@ -225,7 +172,7 @@ export class OrderService {
                 : new Date();
 
             const daysDifference = Math.ceil((actualReturnDate.getTime() - expectedReturnDate.getTime()) / (1000 * 60 * 60 * 24));
-            const dailyRate = 5.0; // $5 per day
+            const dailyRate = PRICING.LATE_FEE_RATE;
 
             if (daysDifference > 0) {
                 // Late return: charge extra
@@ -243,7 +190,7 @@ export class OrderService {
                 || activeOrder.returnAddress 
                 || activeOrder.studentAddress;
 
-            const returnJobPrice = (activeOrder.price * 0.4) + adjustmentFee; // 40% for return delivery + late fee (if any)
+            const returnJobPrice = (activeOrder.price * PRICING.RETURN_JOB_SPLIT) + adjustmentFee; // 40% for return delivery + late fee (if any)
 
             const returnJobReq: CreateJobRequest = {
                 orderId: activeOrder._id.toString(),
@@ -301,24 +248,9 @@ export class OrderService {
     async getAllOrders(studentId: ObjectId | undefined): Promise<GetAllOrdersResponse> {
         try{
             const orders = await orderModel.getAllOrders(studentId);
-            const mappedOrders = orders.map((order: Order) => ({
-                id: order._id.toString(),
-                studentId: order.studentId.toString(),
-                moverId: order.moverId?.toString(),
-                status: order.status,
-                volume: order.volume,
-                totalPrice: order.price,
-                studentAddress: order.studentAddress,
-                warehouseAddress: order.warehouseAddress,
-                returnAddress: order.returnAddress,
-                pickupTime: order.pickupTime,
-                returnTime: order.returnTime,
-            }));
-
             return{
-
                 success: true,
-                orders: mappedOrders,
+                orders: OrderMapper.toOrderListItems(orders),
                 message: "Orders retrieved successfully",
             };
         } catch (error) {
@@ -370,32 +302,7 @@ export class OrderService {
             }
 
             // Emit order.updated via helper
-            try {
-                // emit to user and order rooms
-                const meta = { by: studentId?.toString() ?? null };
-                const orderPayload = {
-                    event: 'order.updated',
-                    order: {
-                        id: updated._id.toString(),
-                        studentId: updated.studentId.toString(),
-                        moverId: updated.moverId?.toString(),
-                        status: updated.status,
-                        volume: updated.volume,
-                        price: updated.price,
-                        studentAddress: updated.studentAddress,
-                        warehouseAddress: updated.warehouseAddress,
-                        returnAddress: updated.returnAddress,
-                        pickupTime: updated.pickupTime,
-                        returnTime: updated.returnTime,
-                        createdAt: updated.createdAt,
-                        updatedAt: updated.updatedAt,
-                    },
-                    meta: meta ?? { ts: new Date().toISOString() }
-                };
-                emitToRooms([`user:${updated.studentId.toString()}`, `order:${updated._id.toString()}`], 'order.updated', orderPayload, meta);
-            } catch (err) {
-                logger.warn('Failed to emit order.updated event:', err);
-            }
+            EventEmitter.emitOrderUpdated(updated, { by: studentId?.toString() ?? null });
 
             return { success: true, message: "Order cancelled successfully" };
         } catch (error) {
@@ -403,65 +310,31 @@ export class OrderService {
             throw new Error("Failed to cancel order");
         }
     }
-    
-    // Helper to emit order.updated in a centralized way
-    private emitOrderUpdated(updatedOrder: any, meta?: any) {
-        try {
-            const orderPayload = {
-                event: 'order.updated',
-                order: {
-                    id: updatedOrder._id.toString(),
-                    studentId: updatedOrder.studentId.toString(),
-                    moverId: updatedOrder.moverId?.toString(),
-                    status: updatedOrder.status,
-                    volume: updatedOrder.volume,
-                    price: updatedOrder.price,
-                    studentAddress: updatedOrder.studentAddress,
-                    warehouseAddress: updatedOrder.warehouseAddress,
-                    returnAddress: updatedOrder.returnAddress,
-                    pickupTime: updatedOrder.pickupTime,
-                    returnTime: updatedOrder.returnTime,
-                    createdAt: updatedOrder.createdAt,
-                    updatedAt: updatedOrder.updatedAt,
-                },
-                meta: meta ?? { ts: new Date().toISOString() }
-            };
 
-            emitToRooms([`user:${updatedOrder.studentId.toString()}`, `order:${updatedOrder._id.toString()}`], 'order.updated', orderPayload, meta);
-        } catch (err) {
-            logger.warn('Failed to emit order.updated event:', err);
+    // Update order status and emit event - called by JobService
+    async updateOrderStatus(orderId: string | mongoose.Types.ObjectId, status: OrderStatus, actorId?: string): Promise<Order> {
+        try {
+            const orderObjectId = typeof orderId === 'string' 
+                ? new mongoose.Types.ObjectId(orderId) 
+                : orderId;
+
+            const updatedOrder = await orderModel.update(orderObjectId, { status });
+            
+            if (!updatedOrder) {
+                throw new Error(`Order ${orderId} not found`);
+            }
+
+            // Emit order.updated event
+            EventEmitter.emitOrderUpdated(updatedOrder, { by: actorId ?? null, ts: new Date().toISOString() });
+
+            logger.info(`Order ${orderId} status updated to ${status} by ${actorId || 'system'}`);
+            
+            return updatedOrder;
+        } catch (error) {
+            logger.error(`Error updating order status for ${orderId}:`, error);
+            throw error;
         }
     }
-
-    // Helper to emit order.created in a centralized way
-    private emitOrderCreated(createdOrder: any, meta?: any) {
-        try {
-            const orderPayload = {
-                event: 'order.created',
-                order: {
-                    id: createdOrder._id.toString(),
-                    studentId: createdOrder.studentId.toString(),
-                    moverId: createdOrder.moverId?.toString(),
-                    status: createdOrder.status,
-                    volume: createdOrder.volume,
-                    price: createdOrder.price,
-                    studentAddress: createdOrder.studentAddress,
-                    warehouseAddress: createdOrder.warehouseAddress,
-                    returnAddress: createdOrder.returnAddress,
-                    pickupTime: createdOrder.pickupTime,
-                    returnTime: createdOrder.returnTime,
-                    createdAt: createdOrder.createdAt,
-                    updatedAt: createdOrder.updatedAt,
-                },
-                meta: meta ?? { ts: new Date().toISOString() }
-            };
-
-            emitToRooms([`user:${createdOrder.studentId.toString()}`, `order:${createdOrder._id.toString()}`], 'order.created', orderPayload, meta);
-        } catch (err) {
-            logger.warn('Failed to emit order.created event:', err);
-        }
-    }
-
 }
 
 export const orderService = new OrderService();
