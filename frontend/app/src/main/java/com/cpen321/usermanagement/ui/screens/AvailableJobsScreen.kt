@@ -94,7 +94,7 @@ fun AvailableJobsScreen(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Smart Route")
+                Text("Get Optimal Route")
             }
             
             // Filter switch
