@@ -315,9 +315,6 @@ private fun AppNavHost(
 
         composable(NavRoutes.AVAILABLE_JOBS) {
             AvailableJobsScreen(
-                onJobDetails = { job ->
-                    navController.navigate("${Screen.JobDetails.route}/${job.id}")
-                },
                 modifier = Modifier.fillMaxSize()
             )
         }

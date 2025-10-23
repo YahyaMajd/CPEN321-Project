@@ -62,7 +62,6 @@ fun CurrentJobCard(
 @Composable
 fun AvailableJobCard(
     job: Job,
-    onDetailsClick: () -> Unit,
     onAcceptClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -109,12 +108,6 @@ fun AvailableJobCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
-                    onClick = onDetailsClick,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Details")
-                }
                 Button(
                     onClick = onAcceptClick,
                     modifier = Modifier.weight(1f)

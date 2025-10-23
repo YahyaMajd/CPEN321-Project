@@ -26,7 +26,6 @@ import java.time.LocalTime
 
 @Composable
 fun AvailableJobsScreen(
-    onJobDetails: (Job) -> Unit,
     modifier: Modifier = Modifier,
     jobViewModel: JobViewModel = hiltViewModel(),
     moverAvailabilityViewModel: MoverAvailabilityViewModel = hiltViewModel()
@@ -177,8 +176,7 @@ fun AvailableJobsScreen(
                         items(jobsToShow) { job ->
                             AvailableJobCard(
                                 job = job,
-                                onAcceptClick = { jobViewModel.acceptJob(job.id) },
-                                onDetailsClick = { onJobDetails(job) }
+                                onAcceptClick = { jobViewModel.acceptJob(job.id) }
                             )
                         }
                     }

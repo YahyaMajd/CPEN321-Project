@@ -18,7 +18,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.cpen321.usermanagement.R
-import com.cpen321.usermanagement.ui.components.AvailableJobCard
 import com.cpen321.usermanagement.ui.components.MessageSnackbar
 import com.cpen321.usermanagement.ui.components.MessageSnackbarState
 import com.cpen321.usermanagement.ui.viewmodels.MainUiState
@@ -139,7 +138,6 @@ private fun MainContent(
                     onRefresh = onRefresh
                 )
                 MoverScreen.AVAILABLE_JOBS -> AvailableJobsScreen(
-                    onJobDetails = onJobDetails,
                     modifier = Modifier.fillMaxSize()
                 )
                 MoverScreen.SET_AVAILABILITY -> SetAvailabilityScreen()
