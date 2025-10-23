@@ -39,6 +39,10 @@ jobs:
             STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
             EOF
 
+            cat > serviceAccountKey.json <<EOF
+            ${{ secrets.SERVICE_ACCOUNT_KEY }}
+            EOF
+
             # Give .env permissions
             chmod 600 .env
 
