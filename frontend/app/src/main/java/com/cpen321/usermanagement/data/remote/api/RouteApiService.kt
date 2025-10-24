@@ -6,7 +6,7 @@ import retrofit2.http.GET
 import retrofit2.http.Query
 
 interface RouteApiService {
-    @GET("routes/smart")
+    @GET("routePlanner/smart")
     suspend fun getSmartRoute(
         @Query("currentLat") currentLat: Double,
         @Query("currentLon") currentLon: Double,

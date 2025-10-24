@@ -7,7 +7,7 @@ import usersRoutes from './user.routes';
 import orderRoutes from './order.routes';
 import jobRoutes from './job.routes';
 import paymentRoutes from './payment.routes';
-import routeRoutes from './route.routes';
+import routePlannerRoutes from './routePlanner.routes';
 
 const router = Router();
 
@@ -23,6 +23,6 @@ router.use('/jobs', authenticateToken, jobRoutes);
 
 router.use('/payment', authenticateToken, paymentRoutes);
 
-router.use('/routes', authenticateToken, routeRoutes);
+router.use('/routePlanner', authenticateToken, routePlannerRoutes);
 
 export default router;

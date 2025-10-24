@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { routeService } from "../services/route.service";
+import { routePlannerService } from "../services/routePlanner.service";
 import { smartRouteRequestSchema, SmartRouteResponse } from "../types/route.types";
 import logger from "../utils/logger.util";
 
@@ -59,7 +59,7 @@ export class RouteController {
       });
 
       // Calculate smart route
-      const result = await routeService.calculateSmartRoute(
+      const result = await routePlannerService.calculateSmartRoute(
         validatedRequest.moverId,
         validatedRequest.currentLocation,
         maxDuration

@@ -8,12 +8,12 @@ import logger from "../utils/logger.util";
 import { ROUTE_CONFIG } from "../config/route.config";
 
 /**
- * RouteService - Provides smart route optimization for movers
+ * RoutePlannerService - Provides smart route optimization for movers
  * 
  * Uses a greedy algorithm with composite scoring to build optimized job routes
  * that balance earnings potential with travel efficiency.
  */
-export class RouteService {
+export class RoutePlannerService {
   /**
    * Calculate the optimal route for a mover based on available jobs and their availability
    * 
@@ -413,4 +413,4 @@ export class RouteService {
   }
 }
 
-export const routeService = new RouteService();
+export const routePlannerService = new RoutePlannerService();
