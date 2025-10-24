@@ -62,11 +62,12 @@ private data class ProfileFormState(
     val email: String = "",
     val bio: String = "",
     val originalName: String = "",
-    val originalBio: String = ""
+    val originalBio: String = "",
+    val profilePicture: String ?= ""
 ) {
     fun hasChanges(): Boolean {
         return (name.isNotBlank() && name != originalName) ||
-                (bio != originalBio && bio.isNotBlank())
+                (bio != originalBio)
     }
 }
 
@@ -144,7 +145,8 @@ fun ManageProfileScreen(
                 email = user.email,
                 bio = user.bio ?: "",
                 originalName = user.name,
-                originalBio = user.bio ?: ""
+                originalBio = user.bio ?: "",
+                profilePicture = user.profilePicture,
             )
         }
     }
@@ -155,7 +157,7 @@ fun ManageProfileScreen(
         onBioChange = { formState = formState.copy(bio = it) },
         onEditPictureClick = { showImagePickerDialog = true },
         onSaveClick = {
-            profileViewModel.updateProfile(formState.name, formState.bio)
+            profileViewModel.updateProfile(formState.name, formState.bio, formState.profilePicture ?: "")
         },
         onImagePickerDismiss = { showImagePickerDialog = false },
         onImageSelected = { uri ->
@@ -446,18 +448,15 @@ private fun ProfileFields(
             enabled = false
         )
 
-        Row(Modifier.focusProperties { canFocus = false }) {
-            OutlinedTextField(
-                value = data.bio,
-                onValueChange = data.onBioChange,
-                label = { Text(stringResource(R.string.bio)) },
-                placeholder = { Text(stringResource(R.string.bio_placeholder)) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 5,
-                readOnly = true
-            )
-        }
+        OutlinedTextField(
+            value = data.bio,
+            onValueChange = data.onBioChange,
+            label = { Text(stringResource(R.string.bio)) },
+            placeholder = { Text(stringResource(R.string.bio_placeholder)) },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 3,
+            maxLines = 5
+        )
     }
 }
 
