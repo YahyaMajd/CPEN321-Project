@@ -159,7 +159,17 @@ fun AvailableJobsScreen(
                     }
                 }
 
-                if (jobsToShow.isEmpty()) {
+                if (jobsToShow.isEmpty() && showOnlyAvailable) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No available jobs within your availability. Try broadening your availability.",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                } else if (jobsToShow.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center

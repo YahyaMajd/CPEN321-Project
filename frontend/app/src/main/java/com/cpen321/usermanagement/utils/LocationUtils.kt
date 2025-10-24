@@ -71,7 +71,7 @@ object LocationUtils {
                         isValid = false,
                         coordinates = null,
                         formattedAddress = null,
-                        errorMessage = "Address must be within Vancouver, BC area. We currently only service Greater Vancouver."
+                        errorMessage = "We currently only service Greater Vancouver."
                     )
                 }
 
