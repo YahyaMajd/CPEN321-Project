@@ -45,6 +45,9 @@ fun CreateReturnJobBottomSheet(
     // Step state
     var currentStep by remember { mutableStateOf(ReturnJobStep.SELECT_DATE) }
     
+    // Error handling
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
     // Date selection state
     var selectedDateMillis by remember { 
         mutableStateOf(System.currentTimeMillis())
@@ -114,6 +117,23 @@ fun CreateReturnJobBottomSheet(
             
             Spacer(modifier = Modifier.height(24.dp))
             
+            // Error message display
+            errorMessage?.let { error ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             // Content based on step
             when (currentStep) {
                 ReturnJobStep.SELECT_DATE -> {
@@ -199,9 +219,11 @@ fun CreateReturnJobBottomSheet(
                                             )
                                         } else {
                                             // Address is invalid or outside service area
+                                            errorMessage = validationResult.errorMessage ?: "Invalid address. Please select a valid address within Greater Vancouver."
                                             isValidating = false
                                         }
                                     } catch (e: Exception) {
+                                        errorMessage = "Failed to validate address. Please try again."
                                         isValidating = false
                                     }
                                 }
