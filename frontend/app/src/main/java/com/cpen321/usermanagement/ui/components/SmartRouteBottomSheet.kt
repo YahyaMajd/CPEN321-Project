@@ -574,7 +574,7 @@ private fun EmptyRouteState() {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "No Jobs Available",
+            text = "No Jobs Available, Please Adjust Your Availability or Duration",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
