@@ -50,11 +50,12 @@ fun MenuButtonItem(
     text: String,
     iconRes: Int,
     onClick: () -> Unit,
+    enabled: Boolean = true,
 ) {
     val spacing = LocalSpacing.current
 
     MenuButton(
-        enabled = true,
+        enabled = enabled,
         onClick = onClick,
     ) {
         Row(

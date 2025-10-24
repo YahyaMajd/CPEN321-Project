@@ -77,6 +77,9 @@ fun ProfileScreen(
     val uiState by profileViewModel.uiState.collectAsState()
     val snackBarHostState = remember { SnackbarHostState() }
 
+    // Prevent ghost clicks by disabling interaction during navigation
+    var isNavigating by remember { mutableStateOf(false) }
+
     // Dialog state
     var dialogState by remember {
         mutableStateOf(ProfileDialogState())
@@ -94,16 +97,35 @@ fun ProfileScreen(
         dialogState = dialogState,
         snackBarHostState = snackBarHostState,
         userRole = userRole,
+        isInteractive = !isNavigating,
         callbacks = ProfileScreenCallbacks(
-            onBackClick = actions.onBackClick,
-            onManageProfileClick = actions.onManageProfileClick,
-            onManageOrdersClick = actions.onManageOrdersClick,
+            onBackClick = {
+                if (!isNavigating) {
+                    isNavigating = true
+                    actions.onBackClick()
+                }
+            },
+            onManageProfileClick = {
+                if (!isNavigating) {
+                    isNavigating = true
+                    actions.onManageProfileClick()
+                }
+            },
+            onManageOrdersClick = {
+                if (!isNavigating) {
+                    isNavigating = true
+                    actions.onManageOrdersClick()
+                }
+            },
             onDeleteAccountClick = {
                 dialogState = dialogState.copy(showDeleteDialog = true)
             },
             onSignOutClick= {
-                authViewModel.handleSignout()
-                actions.onSignOut()
+                if (!isNavigating) {
+                    isNavigating = true
+                    authViewModel.handleSignout()
+                    actions.onSignOut()
+                }
             },
             onDeleteDialogDismiss = {
                 dialogState = dialogState.copy(showDeleteDialog = false)
@@ -113,11 +135,12 @@ fun ProfileScreen(
                 profileViewModel.deleteAccount(
                     onSuccess = {
                         authViewModel.handleAccountDeletion()
-                        actions.onAccountDeleted()
+                        if (!isNavigating) {
+                            isNavigating = true
+                            actions.onAccountDeleted()
+                        }
                     }
                 )
-                authViewModel.handleAccountDeletion()
-                actions.onAccountDeleted()
             },
             onSuccessMessageShown = profileViewModel::clearSuccessMessage,
             onErrorMessageShown = profileViewModel::clearError,
@@ -135,6 +158,7 @@ private fun ProfileContent(
     dialogState: ProfileDialogState,
     snackBarHostState: SnackbarHostState,
     userRole: String?,
+    isInteractive: Boolean = true,
     callbacks: ProfileScreenCallbacks,
     modifier: Modifier = Modifier
 ) {
@@ -160,6 +184,7 @@ private fun ProfileContent(
             isLoading = uiState.isLoadingProfile,
             userRole = userRole,
             user = uiState.user,
+            isInteractive = isInteractive,
             onManageProfileClick = callbacks.onManageProfileClick,
             onManageOrdersClick = callbacks.onManageOrdersClick,
             onDeleteAccountClick = callbacks.onDeleteAccountClick,
@@ -209,6 +234,7 @@ private fun ProfileBody(
     isLoading: Boolean,
     userRole: String?,
     user: User?,
+    isInteractive: Boolean = true,
     onManageProfileClick: () -> Unit,
     onManageOrdersClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
@@ -232,6 +258,7 @@ private fun ProfileBody(
                 ProfileMenuItems(
                     userRole = userRole,
                     user = user,
+                    isInteractive = isInteractive,
                     onManageProfileClick = onManageProfileClick,
                     onManageOrdersClick  = onManageOrdersClick,
                     onSignOutClick = onSignOutClick,
@@ -247,6 +274,7 @@ private fun ProfileBody(
 private fun ProfileMenuItems(
     userRole: String?,
     user: User?,
+    isInteractive: Boolean = true,
     onManageProfileClick: () -> Unit,
     onManageOrdersClick:  () -> Unit,
     onSignOutClick: () -> Unit,
@@ -274,11 +302,13 @@ private fun ProfileMenuItems(
 
         ProfileSection(
             userRole = userRole,
+            isInteractive = isInteractive,
             onManageProfileClick = onManageProfileClick,
             onManageOrdersClick  = onManageOrdersClick
         )
 
         AccountSection(
+            isInteractive = isInteractive,
             onSignOutClick =  onSignOutClick,
             onDeleteAccountClick = onDeleteAccountClick
         )
@@ -288,6 +318,7 @@ private fun ProfileMenuItems(
 @Composable
 private fun ProfileSection(
     userRole: String?,
+    isInteractive: Boolean = true,
     onManageProfileClick: () -> Unit,
     onManageOrdersClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -296,17 +327,18 @@ private fun ProfileSection(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.medium)
     ) {
-        ManageProfileButton(onClick = onManageProfileClick)
+        ManageProfileButton(onClick = onManageProfileClick, enabled = isInteractive)
         if (userRole?.uppercase() == "MOVER") {
-            JobHistoryButton(onClick = onManageOrdersClick)
+            JobHistoryButton(onClick = onManageOrdersClick, enabled = isInteractive)
         } else {
-            ManageOrdersButton(onClick = onManageOrdersClick)
+            ManageOrdersButton(onClick = onManageOrdersClick, enabled = isInteractive)
         }
     }
 }
 
 @Composable
 private fun AccountSection(
+    isInteractive: Boolean = true,
     onSignOutClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -315,8 +347,8 @@ private fun AccountSection(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.medium)
     ) {
-        SignOutButton (onClick = onSignOutClick)
-        DeleteAccountButton(onClick = onDeleteAccountClick)
+        SignOutButton (onClick = onSignOutClick, enabled = isInteractive)
+        DeleteAccountButton(onClick = onDeleteAccountClick, enabled = isInteractive)
     }
 }
 
@@ -324,6 +356,7 @@ private fun AccountSection(
 private fun CreditsSection(
     credits: Float,
     onCashOutClick: () -> Unit,
+    isInteractive: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -359,6 +392,7 @@ private fun CreditsSection(
         Button(
             fullWidth = true,
             onClick = onCashOutClick,
+            enabled = isInteractive
         ) {
             Text("Cash Out")
         }
@@ -368,54 +402,64 @@ private fun CreditsSection(
 @Composable
 private fun ManageProfileButton(
     onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     MenuButtonItem(
         text = stringResource(R.string.manage_profile),
         iconRes = R.drawable.ic_manage_profile,
         onClick = onClick,
+        enabled = enabled,
     )
 }
 
 @Composable
 private fun JobHistoryButton(
     onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     MenuButtonItem(
         text = stringResource(R.string.job_history),
         iconRes = R.drawable.ic_edit,
         onClick = onClick,
+        enabled = enabled,
     )
 }
 
 @Composable
 private fun ManageOrdersButton(
     onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     MenuButtonItem(
         text = stringResource(R.string.manage_orders),
         iconRes = R.drawable.ic_edit,
         onClick = onClick,
+        enabled = enabled,
     )
 }
 
 @Composable
 private fun SignOutButton(
     onClick: () -> Unit,
+    enabled: Boolean = true
 ){
     MenuButtonItem(
         text = stringResource(R.string.sign_out),
         iconRes = R.drawable.ic_sign_out,
         onClick = onClick,
+        enabled = enabled,
     )
 }
 @Composable
 private fun DeleteAccountButton(
     onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     MenuButtonItem(
         text = stringResource(R.string.delete_account),
         iconRes = R.drawable.ic_delete_forever,
         onClick = onClick,
+        enabled = enabled,
     )
 }
 
