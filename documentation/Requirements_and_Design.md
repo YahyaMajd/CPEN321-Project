@@ -316,7 +316,7 @@ DormDash provides a complete, stress-free solution. Through an Uber-like app, st
             - **Purpose**: Cancels the active order and any associated pending jobs, updates statuses to CANCELLED, emits audit events, and triggers any necessary refund or cleanup logic; operation is idempotent and returns no content on success.
         8. `Order[] getStudentOrders(String studentId)`
             - **Purpose**: Internal helper that returns all orders (history and current) for the specified student, intended for service-to-service calls or internal reporting rather than public API consumption.
-        9. `Order updateOrderStatus(String orderId, OrderStatus newStatus) - E`
+        9. `Order updateOrderStatus(String orderId, OrderStatus newStatus)`
             - **Purpose**: Updates the order's status after validating the requested state transition and authorization, returns the updated Order, and triggers side effects (notifications, job cancellations/creations, billing actions) as required by the domain rules.
 
 
@@ -331,22 +331,22 @@ DormDash provides a complete, stress-free solution. Through an Uber-like app, st
             - **Purpose**: Returns all jobs associated with the given mover (assigned, accepted, in-progress, completed, or cancelled) so the mover can view their history and active assignments. Results are typically ordered by recency and include status and relevant timestamps.
         4. `Job[] getStudentJobs(String studentId)`
             - **Purpose**: Returns all jobs linked to the specified student (created by or on behalf of that student), including storage and return jobs across all statuses. Useful for presenting a student's job history and current job states.
-        5. `Job getJobById(String jobId) - E`
+        5. `Job getJobById(String jobId)`
             - **Purpose**: Retrieves the job object for the given jobId, including related details such as orderId, assigned mover, addresses, scheduled times, and status; returns a NotFound/error response if the id is invalid or the job doesn't exist.
         6. `Job updateJobStatus(String jobId, JobStatus status, String moverId)`
-            - **Purpose**: Updates the job's status to the provided value after validating the mover's authorization and that the requested state transition is allowed; returns the updated Job and may trigger side effects (notifications, order status updates, audit events) or rejection with a domain error if the transition is invalid.
+            - **Purpose**: Updates the job's status to the provided value after validating the mover's authorization and that the requested state transition is allowed; returns the updated Job and may trigger side effects (notifications, order status updates)
         7. `Job requestPickupConfirmation(String jobId, String moverId) `
-            - **Purpose**: Internal call used by backend services to request and record a pickup confirmation from a mover for the specified job; returns a Job object that reflects the pending confirmation state and any policy validation errors. (Internal-facing: used by orchestration or admin workflows.)
+            - **Purpose**: Internal call used by backend services to request and record a pickup confirmation from a mover for the specified job; returns a Job object that reflects the pending confirmation state and any policy validation errors.
         8. `Job requestPickupConfirmation(String jobId, String moverId)`
-            - **Purpose**: External endpoint used by a mover client to submit a pickup confirmation request for a job; validates mover permissions and returns the updated Job or an error indicating why the confirmation could not be accepted. (External-facing: used by mover apps to initiate pickup.)
+            - **Purpose**: External endpoint used by a mover client to submit a pickup confirmation request for a job; validates mover permissions and returns the updated Job or an error indicating why the confirmation could not be accepted. 
         9. `Job createJob(String orderId, String studentId, JobType jobType, Double volume, Double price, Address pickupAddress, Address dropoffAddress, DateTime scheduledTime) - E`
-            - **Purpose**: Creates and persists a new Job linked to the given order and student, reserving capacity and pricing, then returns the created Job (including id, status, and scheduled time); may throw validation errors for invalid inputs (e.g., missing addresses or unsupported JobType). (External-facing: used by order flow or student-facing APIs to create storage/return jobs.)
+            - **Purpose**: Creates and persists a new Job linked to the given order and student, reserving capacity and pricing, then returns the created Job (including id, status, and scheduled time); may throw validation errors for invalid inputs (e.g., missing addresses or unsupported JobType)
         10. `Job confirmPickup(String jobId, String studentId) `
-            - **Purpose**: Marks the job as picked up by the mover and transitions the job state to the next logical stage (e.g., IN_TRANSIT or PICKED_UP), returning the updated Job; verifies that the student or mover is authorized and that the job is currently in a pickup-eligible state. (External-facing: used to finalize the physical pickup step.)
+            - **Purpose**: Marks the job as picked up by the mover and transitions the job state to the next logical stage (e.g., IN_TRANSIT or PICKED_UP), returning the updated Job; verifies that the student or mover is authorized and that the job is currently in a pickup-eligible state.
         11. `Job confirmDelivery(String jobId, String studentId)`
-            - **Purpose**: Finalizes delivery for the job, capturing delivery details (timestamps, proof-of-delivery if present), updating job and related order statuses (e.g., IN_STORAGE or RETURNED), and returning the completed Job; includes error responses for state mismatches or verification failures. (External-facing: used by mover or student apps to complete a job.)
+            - **Purpose**: Finalizes delivery for the job, capturing delivery details (timestamps, proof-of-delivery if present), updating job and related order statuses (e.g., IN_STORAGE or RETURNED), and returning the completed Job; includes error responses for state mismatches or verification failures.
         12. `void cancelJobsForOrder(String orderId)`
-            - **Purpose**: Cancels all pending or not-yet-completed jobs associated with the specified order, updating their statuses to CANCELLED and emitting audit/log events; intended for external admin or order-cancellation flows and should be idempotent. (External-facing: used to rollback jobs when an order is cancelled.)
+            - **Purpose**: Cancels all pending or not-yet-completed jobs associated with the specified order, updating their statuses to CANCELLED and emitting audit/log events; intended for external admin or order-cancellation flows and should be idempotent.
 
 
 5.**RoutePlanner**
