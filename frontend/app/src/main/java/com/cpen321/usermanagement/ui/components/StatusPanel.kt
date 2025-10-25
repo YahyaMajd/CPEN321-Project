@@ -33,6 +33,9 @@ import com.cpen321.usermanagement.data.local.models.displayText
 import com.cpen321.usermanagement.data.local.models.Job
 import com.cpen321.usermanagement.data.local.models.JobType
 import com.cpen321.usermanagement.data.local.models.JobStatus
+import com.cpen321.usermanagement.data.repository.OrderRepository
+import com.cpen321.usermanagement.ui.viewmodels.AuthViewModel
+
 // java.time imports removed (unused)
 
 @Composable
@@ -72,6 +75,15 @@ private fun ActiveOrderStatusContent(
             containerColor = MaterialTheme.colorScheme.secondaryContainer
         )
     ) {
+        // Check if an active return job exists for this order
+        // An active return job is one that's not cancelled and not completed yet
+        val hasActiveReturnJob = studentJobs.any { job ->
+            job.jobType == JobType.RETURN &&
+                    job.orderId == order.id &&
+                    job.status != JobStatus.CANCELLED &&
+                    job.status != JobStatus.COMPLETED
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -90,7 +102,7 @@ private fun ActiveOrderStatusContent(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
-                
+
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Status",
@@ -98,7 +110,7 @@ private fun ActiveOrderStatusContent(
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
-            
+
             // Progress Indicator (based on order status)
             val progress = when (order.status) {
                 OrderStatus.PENDING -> 0.2f
@@ -114,75 +126,123 @@ private fun ActiveOrderStatusContent(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.primary
             )
-            
+
             // Status Details
             StatusDetailRow(
                 icon = Icons.Default.CheckCircle,
                 label = "Status",
                 value = order.status.displayText
             )
-            
-            StatusDetailRow(
-                icon = Icons.Default.LocationOn,
-                label = "Pickup Address",
-                value = order.studentAddress.formattedAddress
-            )
-            
+
+
+            if (!hasActiveReturnJob){
+                StatusDetailRow(
+                    icon = Icons.Default.LocationOn,
+                    label = "Pickup Address",
+                    value = order.studentAddress.formattedAddress
+                )
+            }
+
+
             // Show warehouse/storage location when order is in storage
-            if (order.status == OrderStatus.IN_STORAGE) {
+            if (order.status == OrderStatus.IN_STORAGE ) {
                 StatusDetailRow(
                     icon = Icons.Default.LocationOn,
                     label = "Storage Location",
                     value = order.warehouseAddress.formattedAddress
                 )
             }
-            
-            // Volume info
-            StatusDetailRow(
-                icon = Icons.Default.Info,
-                label = "Volume",
-                value = "${order.volume} cubic units"
-            )
-            
-            // Price info
-            StatusDetailRow(
-                icon = Icons.Default.Info,
-                label = "Total Price",
-                value = "$${String.format("%.2f", order.price)}"
-            )
 
-            StatusDetailRow(
-                icon = Icons.Default.Info,
-                label ="Pickup Date",
-                value = "${TimeUtils.formatPickupTime(order.pickupTime)}"
-            )
-
-            StatusDetailRow(
-                icon = Icons.Default.Info,
-                label ="Return Date",
-                value = "${TimeUtils.formatPickupTime(order.returnTime)}"
-            )
-            
-            // Check if an active return job exists for this order
-            // An active return job is one that's not cancelled and not completed yet
-            val hasActiveReturnJob = studentJobs.any { job ->
-                job.jobType == JobType.RETURN && 
-                job.orderId == order.id && 
-                job.status != JobStatus.CANCELLED &&
-                job.status != JobStatus.COMPLETED
+            if (!hasActiveReturnJob){
+                StatusDetailRow(
+                    icon = Icons.Default.Info,
+                    label ="Pickup Date",
+                    value = "${TimeUtils.formatDateTime(order.pickupTime)}"
+                )
             }
-            
-            // Show button only if:
-            // 1. Order is in storage
-            // 2. No active return job exists (completed return jobs don't count)
-            if (order.status == OrderStatus.IN_STORAGE && !hasActiveReturnJob) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+
+            if (hasActiveReturnJob){
+                StatusDetailRow(
+                    icon = Icons.Default.Info,
+                    label ="Return Date",
+                    value = "${TimeUtils.formatDateTime(order.returnTime)}"
+                )
+            }
+
+
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (hasActiveReturnJob) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.tertiaryContainer
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(onClick = onCreateReturnJob) {
-                        //this is technically creating a create return job, but makes more sense to the user to see it as Confirm Return
-                        Text("Confirm Order Return")
+                    if (!hasActiveReturnJob ) {
+                            Text(
+                                text = "📦 Pickup & Storage",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            val storageStatusText = when {
+                                order.status == OrderStatus.PENDING -> "📋 Awaiting mover"
+                                order.status == OrderStatus.ACCEPTED -> "✅ Pickup scheduled"
+                                order.status == OrderStatus.PICKED_UP -> "🚚 En route to storage"
+                                order.status == OrderStatus.IN_STORAGE -> "🏬 In storage"
+                                else -> order.status.displayText
+                            }
+
+                            StatusDetailRow(
+                                icon = Icons.Default.CheckCircle,
+                                label = "Status",
+                                value = storageStatusText,
+                            )
+                    } else {
+                        Text(
+                            text = "🚚 Return Delivery",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+
+                        val returnJob = studentJobs.find { job -> job.jobType == JobType.RETURN && job.orderId == order.id }
+                        val returnStatusText = when (returnJob?.status) {
+                            JobStatus.AVAILABLE -> "📋 Awaiting mover"
+                            JobStatus.ACCEPTED -> "✅ Return scheduled"
+                            JobStatus.PICKED_UP -> "🚚 Out for delivery"
+                            JobStatus.COMPLETED -> "✅ Delivered"
+                            else -> "📦 Processing return"
+                        }
+
+                        StatusDetailRow(
+                            icon = Icons.Default.CheckCircle,
+                            label = "Status",
+                            value = returnStatusText,
+                        )
+                    }
+                }
+
+                // Show button only if:
+                // 1. Order is in storage
+                // 2. No active return job exists (completed return jobs don't count)
+                if (order.status == OrderStatus.IN_STORAGE && !hasActiveReturnJob) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Button(onClick = onCreateReturnJob) {
+                            //this is technically creating a create return job, but makes more sense to the user to see it as Confirm Return
+                            Text("Confirm Order Return")
+                        }
                     }
                 }
             }

@@ -33,10 +33,9 @@ import com.cpen321.usermanagement.data.remote.dto.RouteMetrics
 import com.cpen321.usermanagement.ui.theme.LocalSpacing
 import com.cpen321.usermanagement.ui.viewmodels.SmartRouteUiState
 import com.cpen321.usermanagement.ui.viewmodels.SmartRouteViewModel
+import com.cpen321.usermanagement.utils.TimeUtils
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -516,7 +515,7 @@ private fun RouteJobCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = formatDateTime(job.estimatedStartTime),
+                        text = TimeUtils.formatDateTime(job.scheduledTime),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Black
                     )
@@ -739,15 +738,6 @@ private fun fetchCurrentLocationAndRoute(
         Log.e("SmartRoute", "Location permission error: ${e.message}")
         // Fallback to Vancouver downtown
         viewModel.fetchSmartRoute(49.2827, -123.1207, maxDuration)
+        }
     }
-    
-}
 
-private fun formatDateTime(isoString: String): String {
-    return try {
-        val dateTime = ZonedDateTime.parse(isoString)
-        dateTime.format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))
-    } catch (e: Exception) {
-        isoString
-    }
-}

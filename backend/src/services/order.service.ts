@@ -89,8 +89,7 @@ export class OrderService {
 
             if (idempotencyKey) newOrder.idempotencyKey = idempotencyKey;
 
-            // Create jobs for this order (storage and return)
-            const finalReturnAddress = returnAddress || studentAddress;
+           
             try {
                 const createdOrder = await orderModel.create(newOrder);
 

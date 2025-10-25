@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.collect
@@ -121,6 +122,7 @@ fun ManageOrdersScreen(
         ManageOrderSheet(
             order = orderUi.selectedOrder!!,
             orderViewModel,
+            snackBarHostState = snackBarHostState,
             onClose = { orderViewModel.stopManaging() },
             onOrderCancelled = {
                 // refresh list via ViewModel helper
@@ -270,9 +272,12 @@ fun OrderListItem(
 fun ManageOrderSheet(
     order: Order,
     orderViewModel: OrderViewModel,
+    snackBarHostState: SnackbarHostState,
     onClose: () -> Unit,
     onOrderCancelled: () -> Unit = {}
 ) {
+    val scope = rememberCoroutineScope()
+    
     // Check if order can be cancelled (not already CANCELLED or COMPLETED)
     val canCancel = order.status == OrderStatus.PENDING
     
@@ -367,8 +372,8 @@ fun ManageOrderSheet(
                 HorizontalDivider()
                 
                 // Dates
-                DetailRow(label = "Pickup Date", value = TimeUtils.formatPickupTime(order.pickupTime))
-                DetailRow(label = "Return Date", value = TimeUtils.formatPickupTime(order.returnTime))
+                DetailRow(label = "Pickup Date", value = TimeUtils.formatDateTime(order.pickupTime))
+                DetailRow(label = "Return Date", value = TimeUtils.formatDateTime(order.returnTime))
                 
                 // Cancel button (only show if order can be cancelled)
                 if (canCancel) {
@@ -378,6 +383,14 @@ fun ManageOrderSheet(
                                 if (err == null) {
                                     onOrderCancelled()
                                     onClose()
+                                } else {
+                                    // Show error snackbar
+                                    scope.launch {
+                                        snackBarHostState.showSnackbar(
+                                            message = "Failed to cancel order: ${err.message ?: "Unknown error"}",
+                                            duration = SnackbarDuration.Long
+                                        )
+                                    }
                                 }
                             }
                         },

@@ -47,22 +47,44 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             }
         }
     }
+    
+    /**
+     * Clear FCM token from backend when user logs out
+     * This prevents sending notifications to old tokens
+     */
+    public suspend fun clearFcmTokenFromBackend() {
+        try {
+            Log.d(TAG, "🧹 Clearing FCM token from backend...")
+            val updateRequest = UpdateProfileRequest(name = "anon", fcmToken = null)
+            val response = userInterface.updateProfile(updateRequest)
+            
+            if (response.isSuccessful) {
+                Log.d(TAG, "✅ FCM token cleared successfully from backend")
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Log.e(TAG, "❌ Failed to clear FCM token - Status: ${response.code()}, Error: $errorBody")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Exception while clearing FCM token: ${e.message}", e)
+            throw e
+        }
+    }
 
     private fun sendTokenToBackend(token: String) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                Log.d(TAG, "Sending token to backend: $token")
+                Log.d(TAG, "📤 Sending FCM token to backend: ${token.take(20)}...")
                 val updateRequest = UpdateProfileRequest(name = "anon", fcmToken = token)
-                Log.d(TAG, "req body: $updateRequest")
                 val response = userInterface.updateProfile(updateRequest)
 
                 if (response.isSuccessful) {
-                    Log.d(TAG, "FCM token updated successfully on backend.")
+                    Log.d(TAG, "✅ FCM token updated successfully on backend")
                 } else {
-                    Log.e(TAG, "Failed to update FCM token: ${response.errorBody()?.string()}")
+                    val errorBody = response.errorBody()?.string()
+                    Log.e(TAG, "❌ Failed to update FCM token - Status: ${response.code()}, Error: $errorBody")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating FCM token", e)
+                Log.e(TAG, "❌ Exception while updating FCM token: ${e.message}", e)
             }
         }
     }

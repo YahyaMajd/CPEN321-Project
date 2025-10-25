@@ -109,6 +109,19 @@ export class UserModel {
     try {
       const validatedData = updateProfileSchema.parse(user);
 
+      // If updating FCM token, first remove it from any other users
+      // FCM tokens are device-specific, so one token can only belong to one user
+      if (validatedData.fcmToken !== undefined && validatedData.fcmToken !== null) {
+        await this.user.updateMany(
+          { 
+            fcmToken: validatedData.fcmToken,
+            _id: { $ne: userId } // Don't update the current user
+          },
+          { $set: { fcmToken: null } }
+        );
+        logger.info(`Cleared FCM token ${validatedData.fcmToken} from other users before assigning to user ${userId}`);
+      }
+
       const updatedUser = await this.user.findByIdAndUpdate(
         userId,
         validatedData,
@@ -173,6 +186,23 @@ export class UserModel {
     } catch (error) {
       logger.error('Error getting FCM token:', error);
       throw new Error('Failed to get FCM token');
+    }
+  }
+
+  /**
+   * Clear invalid FCM token from any user who has it
+   * This is called when Firebase reports a token as invalid/expired
+   */
+  async clearInvalidFcmToken(invalidToken: string): Promise<void> {
+    try {
+      const result = await this.user.updateMany(
+        { fcmToken: invalidToken },
+        { $set: { fcmToken: null } }
+      );
+      logger.info(`Cleared invalid FCM token from ${result.modifiedCount} user(s)`);
+    } catch (error) {
+      logger.error('Error clearing invalid FCM token:', error);
+      throw new Error('Failed to clear invalid FCM token');
     }
   }
 }

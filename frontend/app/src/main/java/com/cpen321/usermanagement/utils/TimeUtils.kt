@@ -9,7 +9,19 @@ import java.time.format.DateTimeFormatter
 
 object TimeUtils {
 
-    fun formatPickupTime(isoString: String): String {
+    // ============================================================================
+    // STANDARD DATE-TIME FORMATTING (Use these for all job/order displays)
+    // ============================================================================
+
+    /**
+     * STANDARD FORMAT: "MMM d, yyyy h:mm a" in Pacific Time
+     * 
+     * Use this for ALL job and order time displays to ensure consistency.
+     * Converts ISO string (UTC) to Pacific time.
+     * 
+     * Example: "Oct 25, 2025 10:00 AM"
+     */
+    fun formatDateTime(isoString: String): String {
         return try {
             val zoned: ZonedDateTime = try {
                 ZonedDateTime.parse(isoString)
@@ -18,17 +30,71 @@ object TimeUtils {
                     OffsetDateTime.parse(isoString).toZonedDateTime()
                 } catch (e2: Exception) {
                     val ldt = LocalDateTime.parse(isoString)
-                    ldt.atZone(ZoneId.systemDefault())
+                    ldt.atZone(ZoneId.of("UTC"))
                 }
             }
             // Convert to Pacific Time
             val pacific = zoned.withZoneSameInstant(ZoneId.of("America/Los_Angeles"))
-            val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm a")
-            pacific.format(formatter)
+            pacific.format(DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a"))
         } catch (e: Exception) {
             isoString // fallback to raw string if parsing fails
         }
     }
+
+    /**
+     * STANDARD FORMAT: "MMM d, yyyy h:mm a" in Pacific Time
+     * 
+     * Use this for ALL job time displays from LocalDateTime.
+     * Converts LocalDateTime (assumed UTC) to Pacific time.
+     * 
+     * Example: "Oct 25, 2025 10:00 AM"
+     */
+    fun formatDateTime(localDateTime: LocalDateTime): String {
+        return try {
+            val utcZone = ZoneId.of("UTC")
+            val pacificZone = ZoneId.of("America/Los_Angeles")
+            val zonedUtc = localDateTime.atZone(utcZone)
+            val pacific = zonedUtc.withZoneSameInstant(pacificZone)
+            pacific.format(DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a"))
+        } catch (e: Exception) {
+            localDateTime.toString()
+        }
+    }
+
+    // ============================================================================
+    // DATE PICKER FORMATTING (Material3 DatePicker support)
+    // ============================================================================
+
+    /**
+     * Format UTC milliseconds from Material3 DatePicker to display date.
+     * 
+     * Material3 DatePicker returns UTC milliseconds at midnight UTC representing the selected date.
+     * To display the correct date (the one the user saw and selected), we must format using UTC timezone.
+     * 
+     * For example:
+     * - User selects Oct 25 in picker
+     * - DatePicker returns Oct 25 00:00:00 UTC (1729814400000 ms)
+     * - If we format as Pacific (UTC-8), it shows Oct 24 16:00 = Oct 24 ❌
+     * - If we format as UTC, it shows Oct 25 00:00 = Oct 25 ✅
+     * 
+     * @param utcMillis UTC milliseconds from DatePicker (midnight UTC)
+     * @param pattern SimpleDateFormat pattern (default: "MMMM dd, yyyy")
+     * @return Formatted date string displaying the date the user selected
+     */
+    fun formatDatePickerDate(utcMillis: Long, pattern: String = "MMMM dd, yyyy"): String {
+        return try {
+            val sdf = java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
+            // Must use UTC to display the date the user selected in the picker
+            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            sdf.format(java.util.Date(utcMillis))
+        } catch (e: Exception) {
+            "Invalid date"
+        }
+    }
+
+    // ============================================================================
+    // TIME-ONLY FORMATTING (For availability slots, time pickers, etc.)
+    // ============================================================================
 
     /**
      * Format LocalTime to "HH:mm" string (24-hour format)
@@ -84,50 +150,5 @@ object TimeUtils {
         val startMinutes = toMinutesSinceMidnight(start)
         val endMinutes = toMinutesSinceMidnight(end)
         return timeMinutes in startMinutes..endMinutes
-    }
-
-    /**
-     * Take a LocalDateTime (assumed to be in UTC) and format it into Pacific Time
-     * using the pattern: "MMM d, yyyy 'at' h:mm a". This matches the UI's expected format.
-     */
-    fun formatLocalDateTimeToPacific(localDateTime: java.time.LocalDateTime): String {
-        return try {
-            val utcZone = ZoneId.of("UTC")
-            val pacificZone = ZoneId.of("America/Los_Angeles")
-            val zonedUtc = localDateTime.atZone(utcZone)
-            val pacific = zonedUtc.withZoneSameInstant(pacificZone)
-            val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a")
-            pacific.format(formatter)
-        } catch (e: Exception) {
-            localDateTime.toString()
-        }
-    }
-
-    /**
-     * Format LocalDateTime's time portion into Pacific time "HH:mm" (24h) for compact displays.
-     */
-    fun formatLocalDateTimeTimeOnlyToPacific(localDateTime: java.time.LocalDateTime): String {
-        return try {
-            val utcZone = ZoneId.of("UTC")
-            val pacificZone = ZoneId.of("America/Los_Angeles")
-            val pacific = localDateTime.atZone(utcZone).withZoneSameInstant(pacificZone)
-            pacific.format(DateTimeFormatter.ofPattern("HH:mm"))
-        } catch (e: Exception) {
-            localDateTime.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
-        }
-    }
-
-    /**
-     * Format LocalDateTime's date portion into Pacific date "MMM dd, yyyy".
-     */
-    fun formatLocalDateTimeDateOnlyToPacific(localDateTime: java.time.LocalDateTime): String {
-        return try {
-            val utcZone = ZoneId.of("UTC")
-            val pacificZone = ZoneId.of("America/Los_Angeles")
-            val pacific = localDateTime.atZone(utcZone).withZoneSameInstant(pacificZone)
-            pacific.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
-        } catch (e: Exception) {
-            localDateTime.toLocalDate().toString()
-        }
     }
 }

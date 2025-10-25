@@ -234,6 +234,18 @@ class AuthViewModel @Inject constructor(
 
     fun handleSignout(){
         viewModelScope.launch {
+            // Clear FCM token from backend before logging out
+            try {
+                Log.d(TAG, "Starting logout process - clearing FCM token")
+                val fcmService = MyFirebaseMessagingService()
+                fcmService.clearFcmTokenFromBackend()
+                Log.d(TAG, "✅ FCM token cleared successfully on logout")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Failed to clear FCM token on logout: ${e.message}", e)
+                // Continue with logout even if FCM token clearing fails
+            }
+            
+            Log.d(TAG, "Clearing auth token and disconnecting socket")
             authRepository.clearToken()
             socketClient.disconnect()
             _uiState.value  = AuthUiState(
@@ -247,11 +259,21 @@ class AuthViewModel @Inject constructor(
                 isLoading = false,
                 currentRoute = NavRoutes.AUTH
             )
-
+            Log.d(TAG, "✅ Logout complete")
         }
     }
     fun handleAccountDeletion() {
         viewModelScope.launch {
+            // Clear FCM token from backend before account deletion
+            try {
+                val fcmService = MyFirebaseMessagingService()
+                fcmService.clearFcmTokenFromBackend()
+                Log.d(TAG, "FCM token cleared on account deletion")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to clear FCM token on account deletion", e)
+                // Continue with account deletion even if FCM token clearing fails
+            }
+            
             authRepository.clearToken()
             socketClient.disconnect()
             _uiState.value = AuthUiState(

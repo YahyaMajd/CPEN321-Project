@@ -15,7 +15,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
-import androidx.compose.material3.SelectableDates
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,7 +27,9 @@ import com.cpen321.usermanagement.data.local.models.*
 import com.cpen321.usermanagement.business.DynamicPriceCalculator
 import com.cpen321.usermanagement.ui.viewmodels.OrderViewModel
 import com.cpen321.usermanagement.data.repository.PaymentRepository
+import com.cpen321.usermanagement.ui.components.shared.DatePickerDialog
 import com.cpen321.usermanagement.utils.LocationUtils
+import com.cpen321.usermanagement.utils.TimeUtils
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.TimeoutCancellationException
@@ -458,9 +459,8 @@ private fun BoxSelectionStep(
     var returnMinute by remember { mutableStateOf(0) }
     var showReturnTimeDialog by remember { mutableStateOf(false) }
     
-    val dateFormatter = remember { SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault()) }
-    val pickupDate = dateFormatter.format(Date(selectedPickupDateMillis))
-    val returnDate = dateFormatter.format(Date(selectedDateMillis))
+    val pickupDate = TimeUtils.formatDatePickerDate(selectedPickupDateMillis)
+    val returnDate = TimeUtils.formatDatePickerDate(selectedDateMillis)
     
     // Validation: Check if return date/time is after pickup date/time
     val pickupDateTime = Calendar.getInstance().apply {
@@ -701,16 +701,29 @@ private fun BoxSelectionStep(
         // Proceed to Payment Button
         Button(
             onClick = {
-                // Create ISO 8601 datetime string for pickup
-                val pickupCalendar = Calendar.getInstance().apply {
+                // Create ISO 8601 datetime string for pickup in Pacific timezone
+                val pacificZone = TimeZone.getTimeZone("America/Los_Angeles")
+                val utcZone = TimeZone.getTimeZone("UTC")
+                
+                // First, extract date components from the UTC milliseconds
+                val utcCalendar = Calendar.getInstance(utcZone).apply {
                     timeInMillis = selectedPickupDateMillis
-                    set(Calendar.HOUR_OF_DAY, pickupHour)
-                    set(Calendar.MINUTE, pickupMinute)
-                    set(Calendar.SECOND, 0)
+                }
+                val year = utcCalendar.get(Calendar.YEAR)
+                val month = utcCalendar.get(Calendar.MONTH)
+                val day = utcCalendar.get(Calendar.DAY_OF_MONTH)
+                
+                // Now create a Pacific time calendar with those date components
+                val pickupCalendar = Calendar.getInstance(pacificZone).apply {
+                    clear()
+                    set(year, month, day, pickupHour, pickupMinute, 0)
                     set(Calendar.MILLISECOND, 0)
                 }
-                val isoFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
-                isoFormatter.timeZone = TimeZone.getTimeZone("UTC")
+                
+                // Format to ISO in UTC
+                val isoFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                    timeZone = utcZone
+                }
                 val pickupTimeIso = isoFormatter.format(pickupCalendar.time)
                 
                 val orderRequest = OrderRequest(
@@ -732,12 +745,13 @@ private fun BoxSelectionStep(
     // Pickup Date Picker Dialog
     if (showPickupDatePicker) {
         DatePickerDialog(
-            initialSelectedDateMillis = selectedPickupDateMillis,
             onDateSelected = { dateMillis ->
-                dateMillis?.let { selectedPickupDateMillis = it }
-                showPickupDatePicker = false
+                selectedPickupDateMillis = dateMillis
             },
-            onDismiss = { showPickupDatePicker = false }
+            onDismiss = { showPickupDatePicker = false },
+            title = "Select Pickup Date",
+            initialDateMillis = selectedPickupDateMillis,
+            minDateOffsetDays = 0
         )
     }
     
@@ -758,12 +772,13 @@ private fun BoxSelectionStep(
     // Return Date Picker Dialog
     if (showDatePicker) {
         DatePickerDialog(
-            initialSelectedDateMillis = selectedDateMillis,
             onDateSelected = { dateMillis ->
-                dateMillis?.let { selectedDateMillis = it }
-                showDatePicker = false
+                selectedDateMillis = dateMillis
             },
-            onDismiss = { showDatePicker = false }
+            onDismiss = { showDatePicker = false },
+            title = "Select Return Date",
+            initialDateMillis = selectedDateMillis,
+            minDateOffsetDays = 1 // Return must be at least tomorrow
         )
     }
     
@@ -932,47 +947,6 @@ private fun PriceBreakdownCard(
                 }
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DatePickerDialog(
-    initialSelectedDateMillis: Long,
-    onDateSelected: (Long?) -> Unit,
-    onDismiss: () -> Unit
-) {
-    // Prevent selecting dates in the past
-    val today = java.util.Calendar.getInstance().apply {
-        set(java.util.Calendar.HOUR_OF_DAY, 0)
-        set(java.util.Calendar.MINUTE, 0)
-        set(java.util.Calendar.SECOND, 0)
-        set(java.util.Calendar.MILLISECOND, 0)
-    }.timeInMillis
-    
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = initialSelectedDateMillis,
-        selectableDates = object : SelectableDates {
-            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                return utcTimeMillis >= today
-            }
-        }
-    )
-    
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = { onDateSelected(datePickerState.selectedDateMillis) }) {
-                Text("OK")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    ) {
-        DatePicker(state = datePickerState)
     }
 }
 

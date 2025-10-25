@@ -2,7 +2,7 @@ import admin from '../config/firebase';
 import { NotificationPayload } from '../types/notification.types';
 import logger from "../utils/logger.util";
 import mongoose from 'mongoose';
-import { JobStatus, JobType } from '../types/job.type';
+import { Job, JobStatus, JobType } from '../types/job.type';
 import { jobModel } from "../models/job.model";import { userModel } from '../models/user.model';
 ``
 
@@ -21,12 +21,19 @@ class NotificationService {
       const response = await admin.messaging().send(message);
       logger.info(`Successfully sent notification: ${response}`);
     } catch (error: any) {
-      logger.error(`Error sending notification${payload.fcmToken}: ${error}`);
+      logger.error(`Error sending notification to ${payload.fcmToken}: ${error}`);
       if (
         error.code === "messaging/registration-token-not-registered" ||
         error.code === "messaging/invalid-argument"
       ) {
-        logger.warn(`Token ${payload.fcmToken} is invalid or expired`);
+        logger.warn(`Token ${payload.fcmToken} is invalid or expired, clearing from database`);
+        // Clear invalid token from the database
+        try {
+          await userModel.clearInvalidFcmToken(payload.fcmToken);
+          logger.info(`Cleared invalid FCM token from database`);
+        } catch (clearError) {
+          logger.error(`Failed to clear invalid FCM token: ${clearError}`);
+        }
       }
     }
   }
@@ -35,7 +42,7 @@ class NotificationService {
   // sends job status update notifications to student
   async sendJobStatusNotification(jobId: mongoose.Types.ObjectId, status: JobStatus.ACCEPTED 
         | JobStatus.AWAITING_STUDENT_CONFIRMATION 
-        | JobStatus.COMPLETED) {
+        | JobStatus.COMPLETED | JobStatus.PICKED_UP) {
     try {
       const job = await jobModel.findById(jobId);
       if (!job) {
@@ -53,6 +60,10 @@ class NotificationService {
       let body = "";
 
       switch (status) {
+        case JobStatus.PICKED_UP:
+          title = "Job Update";
+          body = "Your mover has picked up your items!";
+          break;
         case JobStatus.ACCEPTED:
           title = "Job Accepted";
           body = "A mover has accepted your job!";

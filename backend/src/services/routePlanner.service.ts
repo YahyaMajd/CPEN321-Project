@@ -157,14 +157,17 @@ export class RoutePlannerService {
   }
 
   /**
-   * Build optimal route using greedy algorithm with composite scoring
+   * Build optimal route respecting scheduled times
    * 
-   * For each iteration:
-   * 1. Calculate composite score for remaining jobs
-   * 2. Select job with highest score (balances value and proximity)
-   * 3. Update current time and location
-   * 4. Stop if maxDuration is reached
-   * 5. Repeat until no more jobs fit
+   * Algorithm:
+   * 1. Sort jobs by scheduled time (earliest first) - TIME IS THE PRIMARY CONSTRAINT
+   * 2. For each iteration, find all feasible jobs (can arrive before scheduled time)
+   * 3. Select the earliest feasible job (respects time above all else)
+   * 4. Add waiting time if arriving early
+   * 5. Stop if maxDuration is reached
+   * 
+   * This ensures the route is always in chronological order and respects
+   * the fixed scheduled times that students have set.
    */
   private buildOptimalRoute(
     jobs: Array<any & { valueScore: number }>,
@@ -175,8 +178,16 @@ export class RoutePlannerService {
     const route: JobInRoute[] = [];
     let currentLocation = startLocation;
     let currentTime = new Date();
-    let totalElapsedTime = 0; // Track total time in minutes
+    let totalElapsedTime = 0;
     const remainingJobs = [...jobs];
+
+    // STEP 1: Sort all jobs by scheduled time (earliest first)
+    // This ensures we respect time constraints above all else
+    remainingJobs.sort((a, b) => {
+      const timeA = new Date(a.scheduledTime).getTime();
+      const timeB = new Date(b.scheduledTime).getTime();
+      return timeA - timeB;
+    });
 
     // Normalize value scores for fair comparison
     const maxValue = Math.max(...jobs.map((j) => j.valueScore));
@@ -184,70 +195,61 @@ export class RoutePlannerService {
     const valueRange = maxValue - minValue || 1;
 
     while (remainingJobs.length > 0) {
-      // Calculate distances for remaining jobs
+      // Calculate distances and feasibility for remaining jobs
       const jobsWithDistances = remainingJobs.map((job) => {
-        // Use pickupLocation instead of pickupAddress
         const location = job.pickupLocation || job.pickupAddress;
         if (!location || !location.lat || !location.lon) {
           logger.warn(`Job ${job._id} missing location data`);
           return null;
         }
         
+        const distance = this.calculateDistance(currentLocation, location);
+        const travelTime = this.estimateTravelTime(distance);
+        const arrivalTime = new Date(currentTime.getTime() + travelTime * 60000);
+        const scheduledTime = new Date(job.scheduledTime);
+        
+        // FEASIBILITY CHECK: Can we arrive before the scheduled time?
+        const isFeasible = arrivalTime.getTime() <= scheduledTime.getTime();
+        
         return {
           ...job,
-          distance: this.calculateDistance(currentLocation, location),
+          distance,
+          travelTime,
+          arrivalTime,
+          scheduledTime,
+          isFeasible,
+          // Calculate waiting time if we arrive early
+          waitingTime: isFeasible ? Math.max(0, (scheduledTime.getTime() - arrivalTime.getTime()) / 60000) : 0
         };
-      }).filter(Boolean); // Remove null entries
+      }).filter(Boolean);
 
-      // Normalize distances
-      const maxDistance = Math.max(...jobsWithDistances.map((j) => j.distance));
-      const minDistance = Math.min(...jobsWithDistances.map((j) => j.distance));
-      const distanceRange = maxDistance - minDistance || 1;
-
-      // Select jobs sorted by composite score
-      const sortedJobs = this.sortJobsByScore(
-        jobsWithDistances,
-        valueRange,
-        minValue,
-        distanceRange,
-        minDistance
-      );
-
-      // Try jobs in order until we find one that fits within maxDuration
-      let selectedJob = null;
-      logger.info(`Trying to find job that fits. Current elapsed: ${totalElapsedTime}min, maxDuration: ${maxDuration}min, ${sortedJobs.length} jobs available`);
+      // STEP 2: Filter to only feasible jobs (can arrive on time)
+      const feasibleJobs = jobsWithDistances.filter(j => j.isFeasible);
       
-      for (const job of sortedJobs) {
-        const travelTime = this.estimateTravelTime(job.distance);
-        const jobDuration = this.estimateJobDuration(job.volume);
-        const totalTime = totalElapsedTime + travelTime + jobDuration;
-        
-        logger.info(`  Job ${job._id}: travel=${travelTime.toFixed(1)}min, duration=${jobDuration}min, total=${totalTime.toFixed(1)}min, fits=${!maxDuration || totalTime <= maxDuration}`);
-        
-        // Check if this job fits within maxDuration
-        if (!maxDuration || totalElapsedTime + travelTime + jobDuration <= maxDuration) {
-          selectedJob = job;
-          logger.info(`  ✓ Selected this job`);
-          break;
-        }
-      }
-
-      // If no job fits, stop building route
-      if (!selectedJob) {
-        logger.info(`No more jobs fit within maxDuration of ${maxDuration} minutes (current elapsed: ${totalElapsedTime} min)`);
+      if (feasibleJobs.length === 0) {
+        logger.info(`No more feasible jobs (${jobsWithDistances.length} jobs remaining but can't reach any in time)`);
         break;
       }
 
-      // Calculate travel time and job duration for selected job
-      const travelTime = this.estimateTravelTime(selectedJob.distance);
+      // STEP 3: Select the earliest feasible job
+      // Since jobs are already sorted by scheduledTime, feasibleJobs[0] is the earliest
+      const selectedJob = feasibleJobs[0];
+
+      // Check if this job fits within maxDuration
+      // Note: We only count active time (travel + job), not waiting time
       const jobDuration = this.estimateJobDuration(selectedJob.volume);
-      const estimatedStartTime = new Date(currentTime.getTime() + travelTime * 60000);
+      const activeTimeForJob = selectedJob.travelTime + jobDuration;
+      
+      if (maxDuration && totalElapsedTime + activeTimeForJob > maxDuration) {
+        logger.info(`Job ${selectedJob._id} would exceed maxDuration (${totalElapsedTime + activeTimeForJob}min > ${maxDuration}min)`);
+        break;
+      }
 
       // Add job to route
       const pickupLoc = selectedJob.pickupLocation || selectedJob.pickupAddress;
       const dropoffLoc = selectedJob.dropoffLocation || selectedJob.dropoffAddress;
       
-      logger.info(`Adding job to route: distance=${selectedJob.distance?.toFixed(2)}km, travelTime=${travelTime.toFixed(1)}min, duration=${jobDuration}min`);
+      logger.info(`Adding job: scheduled=${selectedJob.scheduledTime.toISOString()}, travel=${selectedJob.travelTime.toFixed(1)}min, wait=${selectedJob.waitingTime.toFixed(1)}min, duration=${jobDuration}min`);
       
       route.push({
         jobId: selectedJob._id?.toString() || '',
@@ -259,16 +261,17 @@ export class RoutePlannerService {
         pickupAddress: pickupLoc,
         dropoffAddress: dropoffLoc,
         scheduledTime: selectedJob.scheduledTime,
-        estimatedStartTime: estimatedStartTime.toISOString(),
+        estimatedStartTime: selectedJob.scheduledTime.toISOString(), // Use actual scheduled time
         estimatedDuration: Math.round(jobDuration),
-        distanceFromPrevious: Math.round(selectedJob.distance * 10) / 10, // Round to 1 decimal
-        travelTimeFromPrevious: Math.round(travelTime),
+        distanceFromPrevious: Math.round(selectedJob.distance * 10) / 10,
+        travelTimeFromPrevious: Math.round(selectedJob.travelTime),
       });
 
       // Update current location and time
+      // Current time = scheduled time + job duration (mover finishes the job)
       currentLocation = dropoffLoc;
-      currentTime = new Date(estimatedStartTime.getTime() + jobDuration * 60000);
-      totalElapsedTime += travelTime + jobDuration;
+      currentTime = new Date(selectedJob.scheduledTime.getTime() + jobDuration * 60000);
+      totalElapsedTime += activeTimeForJob; // Only count active work time
 
       // Remove selected job from remaining jobs
       const jobIndex = remainingJobs.findIndex((j) => j._id.equals(selectedJob._id));

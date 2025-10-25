@@ -303,7 +303,7 @@ fun JobDetailsSheet(
                 HorizontalDivider()
 
                 // Dates
-                DetailRow(label = "Scheduled Time", value = TimeUtils.formatLocalDateTimeToPacific(job.scheduledTime))
+                DetailRow(label = "Scheduled Time", value = TimeUtils.formatDateTime(job.scheduledTime))
             }
         },
         confirmButton = {

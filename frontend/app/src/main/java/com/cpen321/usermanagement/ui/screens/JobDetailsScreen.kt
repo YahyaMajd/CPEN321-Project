@@ -203,7 +203,7 @@ private fun JobDetailsContent(
                 JobInfoRow(
                     icon = Icons.Default.AccessTime,
                     label = "Scheduled",
-                    value = TimeUtils.formatLocalDateTimeToPacific(job.scheduledTime)
+                    value = TimeUtils.formatDateTime(job.scheduledTime)
                 )
             }
         }

@@ -143,56 +143,6 @@ export class JobService {
         }
     }
 
-    // Create both storage and return jobs for an order
-    async createJobsForOrder(
-        orderId: string,
-        studentId: string,
-        volume: number,
-        totalPrice: number,
-        studentAddress: Address,
-        warehouseAddress: Address,
-        returnAddress: Address,
-        pickupTime: string,
-        returnTime: string
-    ): Promise<{ storageJobId: string; returnJobId: string }> {
-        try {
-            // Create STORAGE job (student → warehouse)
-            const storageJobRequest: CreateJobRequest = {
-                orderId,
-                studentId,
-                jobType: JobType.STORAGE,
-                volume,
-                price: totalPrice * PRICING.STORAGE_JOB_SPLIT,
-                pickupAddress: studentAddress,
-                dropoffAddress: warehouseAddress,
-                scheduledTime: pickupTime,
-            };
-
-            // Create RETURN job (warehouse → return address)
-            const returnJobRequest: CreateJobRequest = {
-                orderId,
-                studentId,
-                jobType: JobType.RETURN,
-                volume,
-                price: totalPrice * PRICING.RETURN_JOB_SPLIT,
-                pickupAddress: warehouseAddress,
-                dropoffAddress: returnAddress,
-                scheduledTime: returnTime,
-            };
-
-            const storageJob = await this.createJob(storageJobRequest);
-            const returnJob = await this.createJob(returnJobRequest);
-
-            return {
-                storageJobId: storageJob.id,
-                returnJobId: returnJob.id,
-            };
-        } catch (error) {
-            logger.error("Error creating jobs for order:", error);
-            throw new Error("Failed to create jobs for order");
-        }
-    }
-
     async getAllJobs(): Promise<GetAllJobsResponse> {
         try {
             const jobs = await jobModel.findAllJobs();
@@ -290,6 +240,10 @@ export class JobService {
 
             // If attempting to ACCEPT the job, perform an atomic accept to avoid races
             let updatedJob;
+            const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
+            if (!job) {
+                throw new JobNotFoundError(jobId);
+            }
             if (updateData.status === JobStatus.ACCEPTED) {
                 const moverObjectId = updateData.moverId ? new mongoose.Types.ObjectId(updateData.moverId) : undefined;
                 updatedJob = await jobModel.tryAcceptJob(new mongoose.Types.ObjectId(jobId), moverObjectId);
@@ -326,7 +280,51 @@ export class JobService {
                 
                 // Send notification to student that their job has been accepted
                 await notificationService.sendJobStatusNotification(new mongoose.Types.ObjectId(jobId), JobStatus.ACCEPTED);
+
+            } else if (job.jobType === JobType.RETURN && updateData.status == JobStatus.PICKED_UP) {
+                // Update job and order to picked-up
+                updatedJob = await jobModel.update(
+                    new mongoose.Types.ObjectId(jobId),
+                    updateFields
+                );
                 
+                logger.info(`Job ${jobId} updated: status=${updateFields.status}`);
+                if (!updatedJob) {
+                    throw new Error("Job not found");
+                }
+                
+                // Emit job.updated for the updated job
+                try {
+                    EventEmitter.emitJobUpdated(updatedJob, { by: updateData.moverId ?? null, ts: new Date().toISOString() });
+                } catch (emitErr) {
+                    logger.warn('Failed to emit job.updated after update:', emitErr);
+                }
+
+                // Update order status to PICKED_UP
+                const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
+                if (!job) {
+                    throw new JobNotFoundError(jobId);
+                }
+                
+                logger.debug(`Found job for PICKED_UP flow: ${JSON.stringify(job)}`);
+                
+                // Extract orderId using utility
+                const orderObjectId = extractObjectId(job.orderId);
+                if (!orderObjectId) {
+                    logger.error(`Invalid orderId in job ${jobId}`);
+                    throw new Error("Invalid orderId in job");
+                }
+                
+                logger.info(`Attempting to update linked order status to PICKED_UP for orderId=${orderObjectId}`);
+                
+                try {
+                    await this.orderService.updateOrderStatus(orderObjectId, OrderStatus.PICKED_UP, extractObjectIdString(updatedJob.moverId));
+                    logger.info(`Order ${orderObjectId} updated to PICKED_UP via OrderService`);
+                } catch (err) {
+                    logger.error(`Failed to update order status to PICKED_UP for orderId=${orderObjectId}:`, err);
+                }
+                await notificationService.sendJobStatusNotification(new mongoose.Types.ObjectId(jobId), JobStatus.PICKED_UP);
+
             } else {
                 // For non-ACCEPTED statuses, perform a simple update
                 updatedJob = await jobModel.update(
@@ -351,7 +349,6 @@ export class JobService {
 
             // If job is completed, update order status
             if (updateData.status === JobStatus.COMPLETED) {
-                const job = await jobModel.findById(new mongoose.Types.ObjectId(jobId));
                 if (!job) {
                     throw new JobNotFoundError(jobId);
                 }

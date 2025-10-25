@@ -60,12 +60,39 @@ class OrderRepository @Inject constructor(
             ?: return null // Cannot create order without warehouse address from backend quote
         
         // Format return date - pickup time comes from OrderRequest
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-        dateFormat.timeZone = TimeZone.getTimeZone("UTC")
-        
         val now = Date()
         val pickupTime = orderRequest.pickupTime // Use the pickup time from UI (already in ISO format)
-        val returnTime = dateFormat.format(SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault()).parse(orderRequest.returnDate) ?: Date(now.time + 7 * 24 * 60 * 60 * 1000))
+        
+        // Parse the return date (which is in "MMMM dd, yyyy" format from UI)
+        // and convert to ISO format with Pacific timezone consideration
+        val displayDateParser = SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
+        val parsedDate = displayDateParser.parse(orderRequest.returnDate) 
+            ?: Date(now.time + 7 * 24 * 60 * 60 * 1000)
+        
+        // The parsed date is at midnight in the default timezone
+        // We need to interpret this as Pacific timezone and set it to noon Pacific time
+        val pacificZone = TimeZone.getTimeZone("America/Los_Angeles")
+        val utcZone = TimeZone.getTimeZone("UTC")
+        
+        val pacificCalendar = java.util.Calendar.getInstance(pacificZone).apply {
+            time = parsedDate
+            // Extract date components
+            val year = get(java.util.Calendar.YEAR)
+            val month = get(java.util.Calendar.MONTH)
+            val day = get(java.util.Calendar.DAY_OF_MONTH)
+            
+            // Set to noon Pacific time to avoid timezone edge cases
+            clear()
+            timeZone = pacificZone
+            set(year, month, day, 12, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        
+        // Format to ISO with UTC timezone
+        val isoFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+            timeZone = utcZone
+        }
+        val returnTime = isoFormatter.format(pacificCalendar.time)
         
         return CreateOrderRequest(
             studentId = userId,
@@ -137,6 +164,7 @@ class OrderRepository @Inject constructor(
             println("📡 Response message: ${response.message()}")
             if (response.isSuccessful) {
                 response.body()?.let { order ->
+                    println("✅ Order created with ID: ${order.id}")
                     Result.success(order)
                 } ?: Result.failure(Exception("Empty response"))
             } else {

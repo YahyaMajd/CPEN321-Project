@@ -33,15 +33,11 @@ fun CurrentJobCard(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = TimeUtils.formatLocalDateTimeTimeOnlyToPacific(job.scheduledTime),
+                    text = TimeUtils.formatDateTime(job.scheduledTime),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = TimeUtils.formatLocalDateTimeDateOnlyToPacific(job.scheduledTime),
-                style = MaterialTheme.typography.bodyMedium
-            )
             Text(
                 text = "Status: ${job.status.value}",
                 style = MaterialTheme.typography.bodySmall
@@ -100,7 +96,7 @@ fun AvailableJobCard(
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                text = "${TimeUtils.formatLocalDateTimeDateOnlyToPacific(job.scheduledTime)} ${TimeUtils.formatLocalDateTimeTimeOnlyToPacific(job.scheduledTime)}",
+                text = TimeUtils.formatDateTime(job.scheduledTime),
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(modifier = Modifier.height(8.dp))

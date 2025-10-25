@@ -10,7 +10,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
-import androidx.compose.material3.SelectableDates
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +25,9 @@ import com.cpen321.usermanagement.data.local.models.TestCard
 import com.cpen321.usermanagement.data.local.models.CustomerInfo
 import com.cpen321.usermanagement.data.local.models.PaymentAddress
 import com.cpen321.usermanagement.data.repository.PaymentRepository
+import com.cpen321.usermanagement.ui.components.shared.DatePickerDialog
 import com.cpen321.usermanagement.utils.LocationUtils
+import com.cpen321.usermanagement.utils.TimeUtils
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -54,7 +55,6 @@ fun CreateReturnJobBottomSheet(
     }
     var returnHour by remember { mutableStateOf(17) } // Default 5 PM
     var returnMinute by remember { mutableStateOf(0) }
-    val dateFormatter = remember { SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault()) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimeDialog by remember { mutableStateOf(false) }
     
@@ -138,8 +138,8 @@ fun CreateReturnJobBottomSheet(
             when (currentStep) {
                 ReturnJobStep.SELECT_DATE -> {
                     DateSelectionStep(
-                        expectedReturnDate = dateFormatter.format(Date(expectedReturnDate)),
-                        selectedDate = dateFormatter.format(Date(selectedDateMillis)),
+                        expectedReturnDate = TimeUtils.formatDatePickerDate(expectedReturnDate),
+                        selectedDate = TimeUtils.formatDatePickerDate(selectedDateMillis),
                         onDateClick = { showDatePicker = true },
                         returnHour = returnHour,
                         returnMinute = returnMinute,
@@ -309,12 +309,13 @@ fun CreateReturnJobBottomSheet(
     // Date Picker Dialog
     if (showDatePicker) {
         DatePickerDialog(
-            initialSelectedDateMillis = selectedDateMillis,
             onDateSelected = { dateMillis ->
-                dateMillis?.let { selectedDateMillis = it }
-                showDatePicker = false
+                selectedDateMillis = dateMillis
             },
-            onDismiss = { showDatePicker = false }
+            onDismiss = { showDatePicker = false },
+            title = "Select Return Date",
+            initialDateMillis = selectedDateMillis,
+            minDateOffsetDays = 0
         )
     }
     
@@ -342,19 +343,31 @@ private fun submitReturnJob(
     paymentIntentId: String?,
     onSubmit: (CreateReturnJobRequest, String?) -> Unit
 ) {
-    // Combine date and time
-    val calendar = Calendar.getInstance().apply {
+    // selectedDateMillis from DatePicker is in UTC at midnight
+    // We need to extract the date components in UTC, then create Pacific time
+    val pacificZone = TimeZone.getTimeZone("America/Los_Angeles")
+    val utcZone = TimeZone.getTimeZone("UTC")
+    
+    // First, extract date components from the UTC milliseconds
+    val utcCalendar = Calendar.getInstance(utcZone).apply {
         timeInMillis = selectedDateMillis
-        set(Calendar.HOUR_OF_DAY, returnHour)
-        set(Calendar.MINUTE, returnMinute)
-        set(Calendar.SECOND, 0)
+    }
+    val year = utcCalendar.get(Calendar.YEAR)
+    val month = utcCalendar.get(Calendar.MONTH)
+    val day = utcCalendar.get(Calendar.DAY_OF_MONTH)
+    
+    // Now create a Pacific time calendar with those date components
+    val pacificCalendar = Calendar.getInstance(pacificZone).apply {
+        clear()
+        set(year, month, day, returnHour, returnMinute, 0)
         set(Calendar.MILLISECOND, 0)
     }
     
+    // Format to ISO in UTC
     val isoFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
+        timeZone = utcZone
     }
-    val actualReturnDate = isoFormatter.format(calendar.time)
+    val actualReturnDate = isoFormatter.format(pacificCalendar.time)
     
     val request = CreateReturnJobRequest(
         returnAddress = customAddress,
@@ -734,47 +747,6 @@ private fun PaymentStep(
             },
             onDismiss = { showCardSelector = false }
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DatePickerDialog(
-    initialSelectedDateMillis: Long,
-    onDateSelected: (Long?) -> Unit,
-    onDismiss: () -> Unit
-) {
-    // Prevent selecting dates in the past
-    val today = java.util.Calendar.getInstance().apply {
-        set(java.util.Calendar.HOUR_OF_DAY, 0)
-        set(java.util.Calendar.MINUTE, 0)
-        set(java.util.Calendar.SECOND, 0)
-        set(java.util.Calendar.MILLISECOND, 0)
-    }.timeInMillis
-    
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = initialSelectedDateMillis,
-        selectableDates = object : SelectableDates {
-            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                return utcTimeMillis >= today
-            }
-        }
-    )
-    
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = { onDateSelected(datePickerState.selectedDateMillis) }) {
-                Text("OK")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    ) {
-        DatePicker(state = datePickerState)
     }
 }
 
