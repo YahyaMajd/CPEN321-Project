@@ -89,13 +89,6 @@ fun RoleSelectionScreen(
                 }
                 
                 Spacer(modifier = Modifier.height(LocalSpacing.current.large))
-                
-                Text(
-                    text = "You can change this later in your profile settings",
-                    fontSize = LocalFontSizes.current.small,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }

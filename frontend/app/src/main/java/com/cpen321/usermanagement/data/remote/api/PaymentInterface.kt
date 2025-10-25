@@ -12,6 +12,4 @@ interface PaymentInterface {
     @POST("payment/process")
     suspend fun processPayment(@Body request: ProcessPaymentRequest): Response<ProcessPaymentResponse>
     
-    @GET("payment/status/{paymentIntentId}")
-    suspend fun getPaymentStatus(@Path("paymentIntentId") paymentIntentId: String): Response<PaymentStatusResponse>
 }

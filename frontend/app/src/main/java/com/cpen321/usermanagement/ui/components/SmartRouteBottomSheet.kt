@@ -231,9 +231,9 @@ private fun LocationPermissionRequired(onRequestPermission: () -> Unit) {
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onRequestPermission) {
-            Text("Grant Permission")
-        }
+//        Button(onClick = onRequestPermission) {
+//            Text("Grant Permission")
+//        }
     }
 }
 

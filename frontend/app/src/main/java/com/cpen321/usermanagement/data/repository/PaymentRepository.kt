@@ -73,19 +73,4 @@ class PaymentRepository @Inject constructor(
         }
     }
     
-    suspend fun getPaymentStatus(paymentIntentId: String): Result<PaymentStatusResponse> {
-        return try {
-            val response = paymentInterface.getPaymentStatus(paymentIntentId)
-            
-            if (response.isSuccessful) {
-                response.body()?.let { status ->
-                    Result.success(status)
-                } ?: Result.failure(Exception("Empty response body"))
-            } else {
-                Result.failure(Exception("HTTP ${response.code()}: ${response.message()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
 }
