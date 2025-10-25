@@ -267,63 +267,101 @@ DormDash provides a complete, stress-free solution. Through an Uber-like app, st
 1. **Users**
     - **Purpose**: Represent the end users: student who creates pickups/return order, pays, and tracks order status or mover, who accepts jobs, updates job status and earns credit. 
     - **Interfaces**: 
-        1. 
-            - **Purpose**: 
-        2. 
-            - **Purpose**: 
-        3.  
-            - **Purpose**: 
-        4. 
-            - **Purpose**: 
-
+        1. AuthResult signUp(String idToken)
+            - **Purpose**: Verifies the provided Google ID token, creates a new user account (or returns a domain error if sign up is blocked), and returns an AuthResult containing server-issued credentials (session/JWT), the new user profile, and any onboarding flags; includes token validation, basic profile extraction, and security checks.
+        2. AuthResult signIn(String idToken)
+             - **Purpose**: Verifies the Google ID token, authenticates the existing user, and returns an AuthResult with server-issued session credentials and the user's profile; rejects invalid or expired tokens and performs standard security checks (account lock, banned status).
+        3.  Void signOut(String userId)
+            - **Purpose**: Invalidates the user's active server session(s) or tokens and clears any ephemeral session state (optionally removing stored FCM tokens), returning no content; operation is idempotent and should revoke server-side refresh/session tokens.
+        4. User selectRole(String userId, String role)
+            - **Purpose**: Validates and assigns the requested role to the user (e.g., student, mover, admin), applies any role-specific constraints or approval flows, persists the change, and returns the updated User profile; includes authorization and business-rule checks.
+        5. User getProfile(String userId)
+            - **Purpose**: Returns the user's current profile, including id, name, role(s), contact info, availability, wallet/credit balances, and public profile fields; requires authorization and omits sensitive fields unless the caller has elevated permissions.
+       6. User updateProfile(String userId, String name, String bio, String fcmToken, String profilePicture, DayAvailability availability)
+           - **Purpose**: Updates the supplied profile fields (partially supported; only non-null fields are changed), persists the updated User, and returns the new profile; validates input (image sizes/formats, allowed characters) and updates push tokens/availability atomically.
+       7. void deleteProfile(String userId)
+           - **Purpose**:Soft-deletes or fully removes the user's account depending on retention policy: disables authentication, anonymizes or removes personal data, cancels pending jobs/orders
+       8. void cashOut(String userId, Double earningsToDate)
+           - **Purpose**: Initiates mocking a payout for the user's withdrawable balance (validates earningsToDate against stored balance),
+      
 2. **Payments**
    - **Purpose**: Handle student payments and route credits to movers.  
    - **Interfaces**:  
-        1. 
-            - **Purpose**: 
-        2. 
-            - **Purpose**: 
-        3.  
-            - **Purpose**: 
-        4. 
-            - **Purpose**: 
+        1. PaymentIntent createPaymentIntent(Double amount, String currency)
+            - **Purpose**: Creates and returns a new PaymentIntent for the specified amount and currency, including any client-side token/secret needed to confirm or complete the payment.
+        2. PaymentResult processPayment(String paymentIntentId, String paymentMethodId, String name, String email, Address address)
+            - **Purpose**: Confirms and captures payment for the given PaymentIntent using the supplied payment method and customer details, returning a PaymentResult that indicates success/failure, transaction IDs, and any error messages.
+        3.  PaymentResult refundPayment(String paymentIntentId, Double amount)
+            - **Purpose**: Issues a full or partial refund against the specified PaymentIntent and returns a PaymentResult describing the refund status, refunded amount,
+        4. Void addCredit(Double amount)
+            - **Purpose**: Adds the specified amount as credit to the user's internal account/wallet balance and persists the change
 
 
 3. **Orders**
    - **Purpose**: Central domain component that creates and tracks pickup and return orders, generates corresponding storage/return jobs, and handles state transitions.  
-   - **Interfaces**:  
-        1.    
-            - **Purpose**: 
-        2. 
-            - **Purpose**: 
-        3.  
-            - **Purpose**: 
-        4. 
-            - **Purpose**: 
+   - **Interfaces**:
+     1. `Quote getQuote(String studentId, Address studentAddress)`
+         - **Purpose**: Returns a price estimate for a student's order based on the supplied address and pricing rules (volume, distance, time); the quote includes a fee breakdown (base, distance/surcharge, taxes) and an expiration TTL so clients can show and accept the estimate.
+        2. `Order createOrder(String studentId, Double volume, Double totalPrice, Address studentAddress, DateTime pickupTime, DateTime returnTime) `
+            - **Purpose**: Creates and persists a new Order for the student with the specified volume, pricing, pickup/return schedule, and addresses; returns the created Order (id, status, jobs created) and performs basic validation (availability, pricing lock, payment intent creation) or returns domain errors for invalid input.
+        3. `Order[] getAllOrders()`
+            - **Purpose**: Returns a list of all orders in the system across all statuses; responses include order metadata (id, studentId, status, timestamps, pricing) and callers should use pagination/filters when expecting large result sets.
+        4. `Order getActiveOrder(String studentId)  `
+            - **Purpose**: Retrieves the student's current active order (the order that is not yet completed/returned or cancelled), or a NotFound/null response if none exists; useful for driving the student's current workflow and UI state.
+        5. `Order getOrderById(String orderId) `
+            - **Purpose**: Returns the full Order object for the given id, including linked jobs, addresses, schedule, pricing, and status; returns an error if the id is invalid or the order does not exist.
+        6. `Order confirmReturnOrder(String activeOrderId, Address returnAddress, DateTime actualReturnTime) `
+            - **Purpose**: Confirms and finalizes a return for an active order by recording the return address/time, creating or assigning the RETURN job if required, updating order status, and returning the updated Order; performs validation to ensure the order is in a returnable state.
+        7. `void cancelOrder(String activeOrderId) `
+            - **Purpose**: Cancels the active order and any associated pending jobs, updates statuses to CANCELLED, emits audit events, and triggers any necessary refund or cleanup logic; operation is idempotent and returns no content on success.
+        8. `Order[] getStudentOrders(String studentId)`
+            - **Purpose**: Internal helper that returns all orders (history and current) for the specified student, intended for service-to-service calls or internal reporting rather than public API consumption.
+        9. `Order updateOrderStatus(String orderId, OrderStatus newStatus) - E`
+            - **Purpose**: Updates the order's status after validating the requested state transition and authorization, returns the updated Order, and triggers side effects (notifications, job cancellations/creations, billing actions) as required by the domain rules.
+
 
 4. **Jobs**
    - **Purpose**: Component that handles job status updates, creates storage or return jobs, and coordinates job assignment and acceptance.
    - **Interfaces**:
-        1.    
-            - **Purpose**: 
-        2. 
-            - **Purpose**: 
-        3.  
-            - **Purpose**: 
-        4. 
-            - **Purpose**: 
+        1. `Job[] getAllJobs() `
+            - **Purpose**: Returns a list of every job in the system across all statuses. The response includes each job's id, orderId, type, status, assigned mover (if any), and timestamps; callers should expect potentially large result sets and may request filtering or pagination where supported.
+        2. `Job[] getUnassignedJobs() `
+            - **Purpose**: Returns only jobs with status AVAILABLE (i.e., unassigned and open for movers to accept). Results include job metadata and location/scheduling info useful for matchmaking or display in mover UIs.
+        3. `Job[] getMoverJobs(String moverId)`
+            - **Purpose**: Returns all jobs associated with the given mover (assigned, accepted, in-progress, completed, or cancelled) so the mover can view their history and active assignments. Results are typically ordered by recency and include status and relevant timestamps.
+        4. `Job[] getStudentJobs(String studentId)`
+            - **Purpose**: Returns all jobs linked to the specified student (created by or on behalf of that student), including storage and return jobs across all statuses. Useful for presenting a student's job history and current job states.
+        5. `Job getJobById(String jobId) - E`
+            - **Purpose**: Retrieves the job object for the given jobId, including related details such as orderId, assigned mover, addresses, scheduled times, and status; returns a NotFound/error response if the id is invalid or the job doesn't exist.
+        6. `Job updateJobStatus(String jobId, JobStatus status, String moverId)`
+            - **Purpose**: Updates the job's status to the provided value after validating the mover's authorization and that the requested state transition is allowed; returns the updated Job and may trigger side effects (notifications, order status updates, audit events) or rejection with a domain error if the transition is invalid.
+        7. `Job requestPickupConfirmation(String jobId, String moverId) `
+            - **Purpose**: Internal call used by backend services to request and record a pickup confirmation from a mover for the specified job; returns a Job object that reflects the pending confirmation state and any policy validation errors. (Internal-facing: used by orchestration or admin workflows.)
+        8. `Job requestPickupConfirmation(String jobId, String moverId)`
+            - **Purpose**: External endpoint used by a mover client to submit a pickup confirmation request for a job; validates mover permissions and returns the updated Job or an error indicating why the confirmation could not be accepted. (External-facing: used by mover apps to initiate pickup.)
+        9. `Job createJob(String orderId, String studentId, JobType jobType, Double volume, Double price, Address pickupAddress, Address dropoffAddress, DateTime scheduledTime) - E`
+            - **Purpose**: Creates and persists a new Job linked to the given order and student, reserving capacity and pricing, then returns the created Job (including id, status, and scheduled time); may throw validation errors for invalid inputs (e.g., missing addresses or unsupported JobType). (External-facing: used by order flow or student-facing APIs to create storage/return jobs.)
+        10. `Job confirmPickup(String jobId, String studentId) `
+            - **Purpose**: Marks the job as picked up by the mover and transitions the job state to the next logical stage (e.g., IN_TRANSIT or PICKED_UP), returning the updated Job; verifies that the student or mover is authorized and that the job is currently in a pickup-eligible state. (External-facing: used to finalize the physical pickup step.)
+        11. `Job confirmDelivery(String jobId, String studentId)`
+            - **Purpose**: Finalizes delivery for the job, capturing delivery details (timestamps, proof-of-delivery if present), updating job and related order statuses (e.g., IN_STORAGE or RETURNED), and returning the completed Job; includes error responses for state mismatches or verification failures. (External-facing: used by mover or student apps to complete a job.)
+        12. `void cancelJobsForOrder(String orderId)`
+            - **Purpose**: Cancels all pending or not-yet-completed jobs associated with the specified order, updating their statuses to CANCELLED and emitting audit/log events; intended for external admin or order-cancellation flows and should be idempotent. (External-facing: used to rollback jobs when an order is cancelled.)
 
-5. **RoutePlanner**
+
+5.**RoutePlanner**
    - **Purpose**: Handles creation of optimized routes for movers to maximize efficiency and earnings.
    - **Interfaces**:
-        1.    
-            - **Purpose**: 
-        2. 
-            - **Purpose**: 
-        3.  
-            - **Purpose**: 
-        4. 
-            - **Purpose**: 
+        1. SuggestedRoute calculateSmartRoute(String moverId, Double currentLat, Double currentLon, Int maxDuration) 
+            - **Purpose**: Calculates optimal route for mover based on current location and time constraints. Returns route with jobs ordered by composite score balancing earnings and proximity.
+        2. Job[] filterJobsByAvailability(Job[] jobs, DayAvailability availability)
+            - **Purpose**: Filters available jobs to only include those that fall within mover's availability time windows. Checks if job start and end times fit within any availability slot for the scheduled day.
+        3. JobWithValue[] calculateJobValues(Job[] jobs)
+            - **Purpose**: Calculates value score (earnings per minute) for each job. Returns jobs with valueScore.
+        4. Int estimateJobDuration(double volume) 
+            - **Purpose**: Estimates job duration based on item volume using formula. Returns duration in minutes.
+        5. JobInRoute[] buildOptimalRoute(JobWithValue[] jobs, Location startLocation, DayAvailability availability, Integer maxDuration)
+            - **Purpose**: Greedy algorithm that iteratively selects the best job to add to the route based on value and distance. Stops when maxDuration is reached or no more jobs fit. Returns ordered list of jobs with travel details.
 
 
 ### **4.2. Databases**
@@ -422,14 +460,24 @@ DormDash provides a complete, stress-free solution. Through an Uber-like app, st
 
 
 ### **4.6. Use Case Sequence Diagram (5 Most Major Use Cases)**
-1. [**[WRITE_NAME_HERE]**](#uc1)\
-[SEQUENCE_DIAGRAM_HERE]
-2. ...
+1. [**[Create Order]**](#uc1)\
+![UC1](./images/UC1.jpg)
+
+2. [**[Pay]**](#uc2)\
+![UC2](./images/UC2.jpg)
+
+3. [**[Browse and filter jobs]**](#uc3)\
+![UC3](./images/UC3.jpg)
+
+4. [**[Accept Job]**] (#uc4)\
+![UC4](./images/UC4.jpg)
+
+5. [**[View reccommended route]**] (#uc5)\
+![UC5](./images/UC5.jpg)
 
 
 ### **4.7. Design and Ways to Test Non-Functional Requirements**
-1. [**[WRITE_NAME_HERE]**](#nfr1)
-    - **Validation**: ...
-2. ...
-
-
+1. [**[Scalability]**](#nfr1)
+    - **Validation**: The system uses Docker containerization with MongoDB for horizontal scalability and Express.js with Socket.io for real-time job updates, allowing the simple Node.js deployment to handle short bursts of ~400 concurrent users through efficient connection pooling and stateless API design. MongoDB's flexible schema and indexing capabilities combined with the lightweight Express server ensure ~200 jobs/day can be processed efficiently during peak move-in/move-out periods without requiring complex infrastructure
+2. [**[UI Response Time]**](#nfr2)
+    - **Validation**: Socket.io Real-Time Push: Instead of polling for updates, the backend pushes job status changes directly to connected clients, eliminating the need for repeated API calls and providing immediate feedback.
