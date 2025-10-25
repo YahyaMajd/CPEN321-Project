@@ -10,6 +10,7 @@ data class Address(
 
 data class JobDto(
     val id: String,
+    val orderId: String,
     val jobType: String,
     val volume: Double,
     val price: Double,

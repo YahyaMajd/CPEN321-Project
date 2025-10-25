@@ -28,6 +28,7 @@ class JobRepository @Inject constructor(
                 val jobs = response.body()!!.data?.jobs?.map { dto ->
                     Job(
                         id = dto.id,
+                        orderId = dto.orderId,
                         jobType = JobType.valueOf(dto.jobType),
                         status = JobStatus.valueOf(dto.status),
                         volume = dto.volume,
@@ -56,6 +57,7 @@ class JobRepository @Inject constructor(
                 val jobs = response.body()!!.data?.jobs?.map { dto ->
                     Job(
                         id = dto.id,
+                        orderId = dto.orderId,
                         jobType = JobType.valueOf(dto.jobType),
                         status = JobStatus.valueOf(dto.status),
                         volume = dto.volume,
@@ -84,6 +86,7 @@ class JobRepository @Inject constructor(
                 val jobs = response.body()!!.data?.jobs?.map { dto ->
                     Job(
                         id = dto.id,
+                        orderId = dto.orderId,
                         jobType = JobType.valueOf(dto.jobType),
                         status = JobStatus.valueOf(dto.status),
                         volume = dto.volume,

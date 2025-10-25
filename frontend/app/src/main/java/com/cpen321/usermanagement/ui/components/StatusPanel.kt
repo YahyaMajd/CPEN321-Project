@@ -84,6 +84,10 @@ private fun ActiveOrderStatusContent(
                     job.status != JobStatus.COMPLETED
         }
 
+        println("Active return job  : ${hasActiveReturnJob}")
+        println("StudentJobs ${studentJobs}")
+        println("orderid : ${order.id}")
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -214,7 +218,9 @@ private fun ActiveOrderStatusContent(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
 
+                        // Find the return job that belongs to this order (match on orderId)
                         val returnJob = studentJobs.find { job -> job.jobType == JobType.RETURN && job.orderId == order.id }
+                        println("Return job ${returnJob}")
                         val returnStatusText = when (returnJob?.status) {
                             JobStatus.AVAILABLE -> "📋 Awaiting mover"
                             JobStatus.ACCEPTED -> "✅ Return scheduled"

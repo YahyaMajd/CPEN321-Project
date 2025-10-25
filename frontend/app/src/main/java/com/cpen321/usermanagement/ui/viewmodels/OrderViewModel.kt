@@ -92,13 +92,6 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-    suspend fun getAllOrders() : List<Order>? {
-        return repository.getAllOrders()
-    }
-
-    suspend fun getActiveOrder() : Order? {
-        return repository.getActiveOrder()
-    }
 
     /**
      * Non-suspending refresh helpers the UI can call. These launch coroutines
@@ -157,34 +150,9 @@ class OrderViewModel @Inject constructor(
             }
         }
     }
-
-    fun createReturnJob(onDone: (Throwable?) -> Unit = {}) {
-        viewModelScope.launch {
-            try {
-                repository.createReturnJob(CreateReturnJobRequest())   // suspend with empty request
-                // Update UI state if needed
-                onDone(null)
-            } catch (t: Throwable) {
-                onDone(t)
-            }
-        }
-    }
     
     suspend fun createReturnJob(request: CreateReturnJobRequest): CreateReturnJobResponse {
         return repository.createReturnJob(request)
     }
-    
-    // Optionally expose a public method to manually refresh
-    // fun refreshActiveOrder() {
-    //     if (isFetching.getAndSet(true)) return
-    //     viewModelScope.launch {
-    //         try {
-    //             val res = orderRepository.getActiveOrder()
-    //             res.onSuccess { activeOrder = it }
-    //         } finally {
-    //             isFetching.set(false)
-    //         }
-    //     }
-    // }
 }
 

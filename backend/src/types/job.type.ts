@@ -80,7 +80,7 @@ export type JobResponse = {
 };
 
 // For listing jobs, we might not want to expose all details
-export type JobListItem = Pick<JobResponse, "id" | "jobType" | "volume" | "price" | "pickupAddress" | "dropoffAddress" | "scheduledTime" | "status">;
+export type JobListItem = Pick<JobResponse, "id" | "orderId" | "jobType" | "volume" | "price" | "pickupAddress" | "dropoffAddress" | "scheduledTime" | "status">;
 
 export type GetAllJobsResponse = {
     message: string;

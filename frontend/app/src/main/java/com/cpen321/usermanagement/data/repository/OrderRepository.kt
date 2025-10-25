@@ -187,6 +187,10 @@ class OrderRepository @Inject constructor(
         return try {
             val response = orderApi.getActiveOrder()
             if (response.isSuccessful && response.body() != null) {
+                response.body()?.let { order ->
+                    println("found: ${order.id}")
+                    Result.success(order)
+                } ?: Result.failure(Exception("Empty response"))
                 response.body()
             } else {
                 null
@@ -241,12 +245,5 @@ class OrderRepository @Inject constructor(
         }
         return response.body() ?: throw Exception("Empty response from server")
     }
-    
-    /**
-     * Complete order (move from active to history only)
-     */
-    suspend fun completeOrder() {
-        // updateOrderStatus(orderId, OrderStatus.IN_STORAGE)
-        // Keep in active until user dismisses or starts new order
-    }
+
 }

@@ -3,6 +3,7 @@ import { OrderService } from '../services/order.service';
 import { CreateOrderRequest, CreateOrderResponse, QuoteRequest, GetQuoteResponse, GetAllOrdersResponse, CancelOrderResponse, Order, CreateReturnJobResponse, CreateReturnJobRequest } from '../types/order.types';
 import mongoose, { mongo, ObjectId } from "mongoose";
 import logger from '../utils/logger.util';
+import { OrderMapper } from '../mappers/order.mapper';
 
 export class OrderController {
     constructor(private orderService: OrderService) {}
@@ -63,7 +64,9 @@ export class OrderController {
                 return res.status(404).json(null);
             }
 
-            res.status(200).json(order);
+            // Map to CreateOrderResponse so `id` (string) is included for frontend
+            const mapped = OrderMapper.toCreateOrderResponse(order as any);
+            res.status(200).json(mapped);
         } catch (error) {
             logger.error("Error in getActiveOrder controller:", error);
             next(error);

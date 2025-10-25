@@ -74,6 +74,7 @@ export class OrderService {
             const studentObjectId = new mongoose.Types.ObjectId(studentId);
 
             const newOrder: any = {
+                _id: new mongoose.Types.ObjectId(),
                 studentId: studentObjectId,
                 status: OrderStatus.PENDING,
                 volume,
